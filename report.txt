@@ -1,0 +1,8 @@
+For starters, we will load the dataset, and translate it to both english and spanish, in order to double the amount of training and test examples
+This will provide better results
+
+for the transltation, i'll make use of google translate by importing the googletrans library.
+I'll also make use of panda's read_csv function, that'll allow me to write the results more
+comfortably into a well structured dataset file.
+
+I'll 
