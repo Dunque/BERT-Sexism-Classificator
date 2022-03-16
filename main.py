@@ -348,7 +348,7 @@ class TrainModel():
 # Load Data
 
 #### Data Path
-PathDataSet = '../content/drive/MyDrive/Code/EXITS/Data/'
+PathDataSet = 'data/'
 FileDataset = 'EXIST2021_translatedTraining'
 #### Load tsv as a Data Frame
 df_train = pd.read_csv(PathDataSet + FileDataset + '.csv', index_col=0)
@@ -873,7 +873,7 @@ print(f'f1-score : {metrics.f1_score(Target, Output, average= average_metrics)}'
 # Load data for inference 
 
 #### Data Path
-PathDataSet = '../content/drive/MyDrive/Code/EXITS/Data/'
+PathDataSet = 'data/'
 FileDataset = 'EXIST2021_translatedTest'
 #### Load tsv as a Data Frame
 df_RealData = pd.read_csv(PathDataSet + FileDataset + '.csv', index_col=0)
