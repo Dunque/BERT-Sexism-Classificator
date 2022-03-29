@@ -5,4 +5,18 @@ for the transltation, i'll make use of google translate by importing the googlet
 I'll also make use of panda's read_csv function, that'll allow me to write the results more
 comfortably into a well structured dataset file.
 
-I'll 
+while doing the trnalation, found error AttributeError: 'Translator' object has no attribute 'raise_Exception'
+I thought maybe I was doing too many API calls, and maybe I was overloading it.
+After searching online, i founf this thread:
+
+https://github.com/ssut/py-googletrans/issues/257
+
+So I should use a sleep() call in order to reduce the translations per second. Also, i found out that the maximum allowed number of translations is
+200k per day.
+
+tried doing it with sleep and changing the loop in order to produce less requests, but still got a 429 error code from translate.google.com
+Im going to try a different approach, this time using EasyNMT as the translator. Im goin to specifically use the Opus-MT model, which is considered
+the best overall, supporting translations between lots of languages. The o ther models only support tranlations to english, and their size is considerably bigger
+(being around 1.5 - 5GB, while Opus-Mt is only 300MB). Had to reinstall pytorch to match the version 1.12.
+
+THe new translation method is the same, in chunks of 50 tweets. It takes a really long time, but there are no more errors due to reaching maximum requests.
