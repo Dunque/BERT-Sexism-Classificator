@@ -49,7 +49,7 @@ print(df_train.head())
 
 ### Fill the columns 'Spanish' with English comments translated to Spanish and original Spanish comments
 for index in range(0, 6976, 50):
-  df_train.loc[index:index+51, ['English']] = df_train.loc[index:index+51].apply(lambda x: translator.translate(
+  df_train.loc[index:index+51, ['Spanish']] = df_train.loc[index:index+51].apply(lambda x: translator.translate(
       x['text'], source_lang='en', target_lang='es') if x['language'] == 'en' else x['text'], axis=1)
 
 #### Save Dataset with 'English' column
@@ -84,7 +84,7 @@ print(df_test.head())
 ### Fill the columns 'English' with Spanish comments translated to English and original English comments
 for index in range(0, 4367, 100):
   df_train.loc[index:index+101, ['English']] = df_train.loc[index:index+101].apply(
-    lambda x: translator.translate(x['text'], 'en') if x['language'] == 'es' else x['text'], axis=1)
+    lambda x: translator.translate(x['text'], source_lang='es', target_lang='en') if x['language'] == 'es' else x['text'], axis=1)
 
 #### Save Dataset with 'English' column
 PathDataSet = "data/"
@@ -102,7 +102,7 @@ print(df_test.tail())
 
 ### Fill the columns 'English' with Spanish comments translated to English and original English comments
 for index in range(0, 4367, 100):
-  df_train.loc[index:index+101, ['English']] = df_train.loc[index:index+101].apply(
-    lambda x: translator.translate(x['text'], 'es') if x['language'] == 'en' else x['text'], axis=1)
+  df_train.loc[index:index+101, ['Spanish']] = df_train.loc[index:index+101].apply(
+    lambda x: translator.translate(x['text'], source_lang='en', target_lang='es') if x['language'] == 'en' else x['text'], axis=1)
 
 print(df_test.head())
