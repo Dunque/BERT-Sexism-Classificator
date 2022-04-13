@@ -20,3 +20,7 @@ the best overall, supporting translations between lots of languages. The o ther 
 (being around 1.5 - 5GB, while Opus-Mt is only 300MB). Had to reinstall pytorch to match the version 1.12.
 
 THe new translation method is the same, in chunks of 50 tweets. It takes a really long time, but there are no more errors due to reaching maximum requests.
+
+I'm having a lot of problems translating the test data, the columns English and Spanish never get written. It was a problem with the name of a variable. It's solved now
+
+Finally, I have a script that translates both training and test sets to English and Spanish, adding a new column to a csv file with each translation.
