@@ -1,6 +1,5 @@
 # pip install pandas
 # pip install easynmt
-# pip install --pre torch torchvision -f https://download.pytorch.org/whl/nightly/cu111/torch_nightly.html
 
 ### Load dependences
 import pandas as pd

@@ -24,3 +24,110 @@ THe new translation method is the same, in chunks of 50 tweets. It takes a reall
 I'm having a lot of problems translating the test data, the columns English and Spanish never get written. It was a problem with the name of a variable. It's solved now
 
 Finally, I have a script that translates both training and test sets to English and Spanish, adding a new column to a csv file with each translation.
+
+
+
+Now with the training and test
+
+BERT neural network base class
+https://pytorch.org/docs/stable/generated/torch.nn.Module.html
+
+basic BERT usage
+https://medium.com/@yashvardhanvs/classification-using-pre-trained-bert-model-transfer-learning-2d50f404ed4c
+
+Pytorch base model
+https://pytorch.org/docs/stable/generated/torch.nn.Module.html
+
+Pytorch linear 
+https://pytorch.org/docs/stable/generated/torch.nn.Linear.html?highlight=linear#torch.nn.Linear
+
+Pytorch dropout
+https://pytorch.org/docs/stable/generated/torch.nn.Dropout.html?highlight=dropout#torch.nn.Dropout
+paper -> https://arxiv.org/abs/1207.0580
+
+CrossEntropyLoss
+https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html
+
+BERT tokenization
+https://huggingface.co/transformers/v3.0.2/model_doc/bert.html#berttokenizer
+https://albertauyeung.github.io/2020/06/19/bert-tokenization.html/
+
+
+
+
+Now with the restart of the project
+
+
+Im going to bewgin by doing some prototyping with basic berts and pytorch.
+
+Sources:
+
+binary classificator:
+https://towardsdatascience.com/bert-text-classification-using-pytorch-723dfb8b6b5b
+code:
+https://colab.research.google.com/drive/1P4Hq0btDUDOTGkCHGzZbAx1lb0bTzMMa?usp=sharing
+preprocess of dataset:
+https://colab.research.google.com/drive/1xqkvuNDg0Opk-aZpicTVPNY4wUdC7Y7v?usp=sharing
+
+AVALIABLE BERT PRETRAINED MODELS:
+https://huggingface.co/models
+
+multilabel classificator:
+https://medium.com/analytics-vidhya/multi-label-text-classification-using-transformers-bert-93460838e62b
+https://curiousily.com/posts/multi-label-text-classification-with-bert-and-pytorch-lightning/
+
+
+first, binary classificator:
+
+IM prototyping a small bert with pytorch to see if it can improve the classification. ill start with the binary one, nad check if it works.
+first i have to see if i can fit the current dataset format into the project. 
+
+Also, instead of using regular Pytorch models i can use lightning pytorch.
+more on that later.
+
+first of all, i have to adapt the data to fit this example. i have to meddle with the fields for the TabularDataset.
+
+my labels are strings, so i have to  make changes to accommodate that fact. Also, for the spanish and english versions, i should
+create different tabular datasets, as the label for the translated english / spanish tweets is different.
+
+Another detail for this early implementation, it takes into consideration a preestablished validation dataset, instead of
+doing various iterations in order to perfect it. SEARCH FOR THE NAME OF THIS TECHNIQUE.
+
+ok so first i have to preprocess the data a bit. In this case, i have to select either spanish or english columns, and cull them for each task.
+First I'll do the english one, so i'll have to create two new files containing the following tags: id, task1, English -> ill rename them to: id, sexist, text
+
+i'll drop a validation file as well.
+
+now that i got the train validation and test files, im going to test the main script. Im having some troubles with torchtext, as it has moved some functionalities
+to a legacy format.
+
+https://github.com/pytorch/text/blob/master/examples/legacy_tutorial/migration_tutorial.ipynb
+
+I'm going to stick with the legacy methods for now, to do an initial test.
+
+Got various bert errors
+
+Some weights of the model checkpoint at bert-base-uncased were not used when initializing BertForSequenceClassification: ['cls.predictions.transform.LayerNorm.weight', 'cls.predictions.transform.LayerNorm.bias', 'cls.predictions.transform.dense.bias', 'cls.predictions.decoder.weight', 'cls.seq_relationship.bias', 'cls.seq_relationship.weight', 'cls.predictions.bias', 'cls.predictions.transform.dense.weight']
+- This IS expected if you are initializing BertForSequenceClassification from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing BertForSequenceClassification from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Some weights of BertForSequenceClassification were not initialized from the model checkpoint at bert-base-uncased and are newly initialized: ['classifier.bias', 'classifier.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+
+and these are the results:
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           1     0.5669    0.0293    0.0557      3040
+           0     0.5180    0.9790    0.6776      3240
+
+    accuracy                         0.5193      6280
+   macro avg     0.5425    0.5041    0.3666      6280
+weighted avg     0.5417    0.5193    0.3765      6280
+
+not that good, but it's already way better than the results i got from the fastText classificator.
+
+
+This link is for updating the torchtext from the legacy one used in this example.
+https://colab.research.google.com/github/pytorch/text/blob/master/examples/legacy_tutorial/migration_tutorial.ipynb
+following this guide

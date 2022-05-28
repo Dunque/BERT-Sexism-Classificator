@@ -53,27 +53,21 @@ from torch_xla.core.xla_model import mesh_reduce
 
 warnings.filterwarnings("ignore")
 
+#base neural network class
 class BERTBaseUncased(nn.Module):
     def __init__(self, bert_path, output_bert='pooler', NumberOfClasses=2):
         super(BERTBaseUncased, self).__init__()
         self.bert_path = bert_path
         self.bert = transformers.BertModel.from_pretrained(self.bert_path)
+        #effective technique for regularization and preventing the co-adaptation of neurons 
         self.bert_drop = nn.Dropout(0.3)
         self.output_bert = output_bert
         self.NumberOfClasses = NumberOfClasses
         self.OutPutHidden = nn.Linear(768 * 2, NumberOfClasses)
         self.OutPoller = nn.Linear(768, NumberOfClasses)
 
-    def forward(
-            self,
-            ids,
-            mask,
-            token_type_ids
-    ):
-        o1, o2 = self.bert(
-            ids,
-            attention_mask=mask,
-            token_type_ids=token_type_ids)
+    def forward(self, ids, mask, token_type_ids):
+        o1, o2 = self.bert(ids,attention_mask=mask,token_type_ids=token_type_ids)
           
         if self.output_bert=='hidden':
           apool = torch.mean(o1, 1)
@@ -103,13 +97,8 @@ class BERTDatasetTraining:
         comment = str(self.comment[item])
         comment = " ".join(comment.split())
 
-        inputs = self.tokenizer.encode_plus(
-            comment,
-            None,
-            truncation=True,
-            add_special_tokens=True,
-            max_length=self.max_length,
-        )
+        #Tokenizes, adds [CLS] and [SEP], pads and truncates to max length, creates attention masks.
+        inputs = self.tokenizer.encode_plus(comment,None,truncation=True,add_special_tokens=True,max_length=self.max_length)
         ids = inputs["input_ids"]
         token_type_ids = inputs["token_type_ids"]
         mask = inputs["attention_mask"]
@@ -141,6 +130,7 @@ class TrainModel():
     self.y_train = y_train
     self.y_valid = y_valid
     self.NumberOfLabels = y_train.nunique()
+    #Task 2 or task 1
     self.average_metrics =  'macro' if self.NumberOfLabels > 2 else 'binary'
     self.PathSaveFiles = PathSaveFiles
     self.MaxLen = MaxLen
@@ -148,6 +138,8 @@ class TrainModel():
 
 
   def _run(self):
+
+      #Seriaization using pickle
       def OpenEndSave(CurrentEpoch, module):
           if module == 'open'and CurrentEpoch == 1:
             with open(self.PathSaveFiles + self.FileName + ".pkl", "rb") as f:
@@ -196,6 +188,7 @@ class TrainModel():
               if scheduler is not None:
                   scheduler.step()
 
+      #This eval loop is designet to work with distributed data paralell in pytorch
       def eval_loop_fn(data_loader, model, device):
           model.eval()
           fin_targets = []
@@ -333,6 +326,8 @@ class TrainModel():
         ## print accuracy
           xm.master_print(f'Accuracy = {accuracy}')
 
+
+
 # Load Data
 
 #### Data Path
@@ -360,7 +355,7 @@ df_train.head()
 
 #### Change columns names for the train
 LabelColumn = "LabelTask1"      ## "LabelTask1", "LabelTask2"
-DataColumn = "Spanish"          ## "text", "English" and "Spanish"
+DataColumn = "English"          ## "text", "English" and "Spanish"
 NewColumnsNames = {DataColumn:"Data",LabelColumn:"Label"}
 df_train = df_train.rename(columns=NewColumnsNames)
 # df_train = df_train.sample(frac=1).reset_index(drop=True)
@@ -368,12 +363,14 @@ df_train = df_train.rename(columns=NewColumnsNames)
 #### Vizualise Data
 df_train
 
+
+
 ######################################################
 ############## Moddify CODE ##########################
 ######################################################
 
 ## Select Data for train
-LanguageTrain = 'es'        ## 'Whole', 'en', 'es'
+LanguageTrain = 'en'        ## 'Whole', 'en', 'es'
 
 df_train_es = df_train.loc[df_train.loc[df_train['language']== 'es' ].index[0]:df_train.loc[df_train['language']== 'es'].index[-1]]
 df_train_en = df_train.loc[df_train.loc[df_train['language']== 'en' ].index[0]:df_train.loc[df_train['language']== 'en'].index[-1]]
@@ -383,7 +380,7 @@ df_test_es = df_train_es.groupby(['Label']).apply(lambda x: x.sample(frac=0.2, r
 df_test_en = df_train_en.groupby(['Label']).apply(lambda x: x.sample(frac=0.2, random_state=48))
 df_test_whole = pd.concat([df_test_es,df_test_en])
 
-#Selectin the data for the Standar Train and Test
+#Selectin the data for the Standard Train and Test
 if LanguageTrain == 'whole':
   df_test = df_test_whole
 elif LanguageTrain == 'es':
@@ -397,6 +394,7 @@ else:
 
 df_test.head()
 
+
 # Removing Extra Index levels
 df_test_es = df_test_es.reset_index(level=0, drop=True)
 df_test_en = df_test_en.reset_index(level=0, drop=True)
@@ -407,6 +405,12 @@ df_test = df_test.reset_index(level=0, drop=True)
 
 # Checking the Data
 df_test.head()
+
+# Remove the data/rows used for test set from the train set
+df_train = df_train.drop(df_test.index)
+df_train.head()
+
+
 
 # Reset index datframes and and Remove non-sexist rows if task 2 
 #### Remove non-sexist rows if task 2 
@@ -433,6 +437,8 @@ df_test_es = df_test_es.reset_index(drop=True)
  
 df_test.head()
 
+
+#LOAD WEIGHTS
 def CriateFileName(BertVersionDict, NumberOfClasses):
   
   NameFile = str()
@@ -446,18 +452,12 @@ def CriateFileName(BertVersionDict, NumberOfClasses):
 
   return NameFile
 
-# BertVersion = {'EnglishBert':'../content/bert-base-uncased/', 'SpanishBert':'../content/bert-base-spanish-wwm-uncased/', 'MultilingualBert':'../content/bert-base-multilingual-uncased/'}
-# OutputBert = ['hidden', 'pooler']
-# LearningRate = [2e-5, 3e-5, 5e-5]
-# BatchSize = [32, 64]
-# Epochs = 8
-
 ######################################################
 ############## Moddify CODE - BERT model #############
 ######################################################
 
 ## Train Parameters
-BertVersion = {'SpanishBert':'../content/bert-base-spanish-wwm-uncased/'}
+BertVersion = {'EnglishBert':'../content/bert-base-uncased/'}
 OutputBert = ['hidden', 'pooler']
 LearningRate = [2e-5, 3e-5, 5e-5]
 BatchSize = [32, 64]
@@ -476,7 +476,7 @@ Metrics = MetricsTask2 if df_train['Label'].nunique() > 2 else MetricsTask1
 ResultsTask = { bert:{ output:{ lr:{ bat:{ epoc:{ metric:[] for metric in Metrics + ['loss']} for epoc in range(1, Epochs+1) } for bat in BatchSize} for lr in LearningRate} for output in OutputBert } for bert in BertVersion.keys() }
 
 ## Where to Save Files
-Path = 'drive/MyDrive/Code/EXITS/Machine-Learning-Tweets-Classification/Bert/Results/' 
+Path = 'results/' 
 BertModels = ''
 for b in list(BertVersion.keys()):
   BertModels =  BertModels  + b + '_'
@@ -499,6 +499,8 @@ if not os.path.exists(Path + FileResults + '.pkl'):
   print(f'File Path : {Path}')
   with open(Path + FileResults + ".pkl",'wb') as f:
     pickle.dump(ResultsTask, f)
+
+
 
 #TRAIN
 
@@ -542,7 +544,10 @@ for BertV, BertPath in BertVersion.items():
           FLAGS={}
           xmp.spawn(_mp_fn, args=(FLAGS,), nprocs=8, start_method='fork')
 
+
+
 #RESULTS
+
 def AveragResults(FileName, Path):
   with open(Path + FileName + ".pkl", "rb") as f:
               Results = pickle.load(f)
