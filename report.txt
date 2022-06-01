@@ -105,7 +105,7 @@ https://github.com/pytorch/text/blob/master/examples/legacy_tutorial/migration_t
 
 I'm going to stick with the legacy methods for now, to do an initial test.
 
-Got various bert errors
+Got this bert warning the first time i trained:
 
 Some weights of the model checkpoint at bert-base-uncased were not used when initializing BertForSequenceClassification: ['cls.predictions.transform.LayerNorm.weight', 'cls.predictions.transform.LayerNorm.bias', 'cls.predictions.transform.dense.bias', 'cls.predictions.decoder.weight', 'cls.seq_relationship.bias', 'cls.seq_relationship.weight', 'cls.predictions.bias', 'cls.predictions.transform.dense.weight']
 - This IS expected if you are initializing BertForSequenceClassification from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
@@ -127,7 +127,36 @@ weighted avg     0.5417    0.5193    0.3765      6280
 
 not that good, but it's already way better than the results i got from the fastText classificator.
 
+Executed a second time, got these results:
 
+              precision    recall  f1-score   support
+
+           1     0.5920    0.6405    0.6153      3040
+           0     0.6346    0.5858    0.6092      3240
+
+    accuracy                         0.6123      6280
+   macro avg     0.6133    0.6131    0.6122      6280
+weighted avg     0.6140    0.6123    0.6121      6280
+
+
+Third time:
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           1     0.4242    0.0046    0.0091      3040
+           0     0.5156    0.9941    0.6790      3240
+
+    accuracy                         0.5151      6280
+   macro avg     0.4699    0.4994    0.3441      6280
+weighted avg     0.4714    0.5151    0.3547      6280
+
+these are really varied results, which is not a good thing. It can be due to the data preprocessing
 This link is for updating the torchtext from the legacy one used in this example.
 https://colab.research.google.com/github/pytorch/text/blob/master/examples/legacy_tutorial/migration_tutorial.ipynb
 following this guide
+
+
+I can also try this approach, which seems pretty good, considering it takes into account tweets
+
+https://skimai.com/fine-tuning-bert-for-sentiment-analysis/
