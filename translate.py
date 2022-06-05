@@ -11,7 +11,6 @@ translator = EasyNMT('opus-mt', max_loaded_models=10)
 
 ### TRAINING DATASET
 
-
 #### Data Path
 PathDataSet = "data/"
 FileName = "EXIST2021_training.tsv"

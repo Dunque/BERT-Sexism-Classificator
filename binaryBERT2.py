@@ -66,7 +66,7 @@ else:
 #DATA PREPROCESSING
 import nltk
 # Uncomment to download "stopwords"
-nltk.download("stopwords")
+#nltk.download("stopwords")
 from nltk.corpus import stopwords
 
 def text_preprocessing(s):
@@ -95,6 +95,9 @@ def text_preprocessing(s):
                   or word in ['not', 'can']])
     # Remove trailing whitespace
     s = re.sub(r'\s+', ' ', s).strip()
+
+    # Remove links
+    s = re.sub(r"http\S+", "", s)
     
     return s
 
@@ -131,7 +134,7 @@ def get_auc_CV(model):
 
 from sklearn.naive_bayes import MultinomialNB
 
-res = pd.Series([get_auc_CV(MultinomialNB())
+res = pd.Series([get_auc_CV(MultinomialNB(alpha=i))
                  for i in np.arange(1, 10, 0.1)],
                 index=np.arange(1, 10, 0.1))
 
@@ -201,6 +204,9 @@ def text_preprocessing(text):
     # Remove trailing whitespace
     text = re.sub(r'\s+', ' ', text).strip()
 
+    # Remove links
+    text = re.sub(r"http\S+", "", text)
+
     return text
 
 
@@ -239,8 +245,9 @@ def preprocessing_for_bert(data):
         encoded_sent = tokenizer.encode_plus(
             text=text_preprocessing(sent),  # Preprocess sentence
             add_special_tokens=True,        # Add `[CLS]` and `[SEP]`
-            max_length=MAX_LEN,                  # Max length to truncate/pad
-            pad_to_max_length=True,         # Pad sentence to max length
+            max_length=MAX_LEN,             # Max length to truncate/pad
+            padding='max_length',              # Pad sentence to max length
+            truncation=True,                # Truncate to adapt to the 512 token limit
             #return_tensors='pt',           # Return PyTorch tensor
             return_attention_mask=True      # Return attention mask
             )
@@ -364,7 +371,8 @@ class BertClassifier(nn.Module):
 
 ##OPTIMIZER
 
-from transformers import AdamW, get_linear_schedule_with_warmup
+from transformers import get_linear_schedule_with_warmup
+from torch.optim import AdamW
 
 def initialize_model(epochs=4):
     """Initialize the Bert Classifier, the optimizer and the learning rate scheduler.
@@ -476,19 +484,20 @@ def train(model, train_dataloader, val_dataloader=None, epochs=4, evaluation=Fal
         if evaluation == True:
             # After the completion of each training epoch, measure the model's performance
             # on our validation set.
-            val_loss, val_accuracy = evaluate(model, val_dataloader)
 
             # Print performance over the entire training data
             time_elapsed = time.time() - t0_epoch
+
+            evaluate(model, val_dataloader, avg_train_loss, time_elapsed, epoch_i)
             
-            print(f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {val_loss:^10.6f} | {val_accuracy:^9.2f} | {time_elapsed:^9.2f}")
-            print("-"*70)
         print("\n")
     
     print("Training complete!")
 
+import seaborn as sns
+from sklearn.metrics import classification_report, confusion_matrix
 
-def evaluate(model, val_dataloader):
+def evaluate(model, val_dataloader, avg_train_loss, time_elapsed, epoch_i):
     """After the completion of each training epoch, measure the model's performance
     on our validation set.
     """
@@ -499,6 +508,9 @@ def evaluate(model, val_dataloader):
     # Tracking variables
     val_accuracy = []
     val_loss = []
+
+    y_pred = []
+    y_true = []
 
     # For each batch in our validation set...
     for batch in val_dataloader:
@@ -520,11 +532,31 @@ def evaluate(model, val_dataloader):
         accuracy = (preds == b_labels).cpu().numpy().mean() * 100
         val_accuracy.append(accuracy)
 
+        y_pred.extend(torch.argmax(logits, 1).tolist())
+        y_true.extend(b_labels.tolist())
+
     # Compute the average accuracy and loss over the validation set.
     val_loss = np.mean(val_loss)
     val_accuracy = np.mean(val_accuracy)
 
-    return val_loss, val_accuracy
+    print(f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {val_loss:^10.6f} | {val_accuracy:^9.2f} | {time_elapsed:^9.2f}")
+    print("-"*70)
+
+    print('Classification Report:')
+    print(classification_report(y_true, y_pred, labels=[1,0], digits=4))
+    
+    cm = confusion_matrix(y_true, y_pred, labels=[1,0])
+    ax= plt.subplot()
+    sns.heatmap(cm, annot=True, ax = ax, cmap='Blues', fmt="d")
+
+    ax.set_title('Confusion Matrix')
+
+    ax.set_xlabel('Predicted Labels')
+    ax.set_ylabel('True Labels')
+
+    ax.xaxis.set_ticklabels(['FAKE', 'REAL'])
+    ax.yaxis.set_ticklabels(['FAKE', 'REAL'])
+    plt.show()
 
 #Actual training
 set_seed(42)    # Set seed for reproducibility
@@ -547,13 +579,14 @@ def bert_predict(model, test_dataloader):
     # For each batch in our test set...
     for batch in test_dataloader:
         # Load batch to GPU
-        b_input_ids, b_attn_mask = tuple(t.to(device) for t in batch)[:2]
+        b_input_ids, b_attn_mask, b_labels = tuple(t.to(device) for t in batch)
 
         # Compute logits
         with torch.no_grad():
             logits = model(b_input_ids, b_attn_mask)
+
         all_logits.append(logits)
-    
+
     # Concatenate logits from each batch
     all_logits = torch.cat(all_logits, dim=0)
 
@@ -580,3 +613,9 @@ full_train_dataloader = DataLoader(full_train_data, sampler=full_train_sampler, 
 set_seed(42)
 bert_classifier, optimizer, scheduler = initialize_model(epochs=2)
 train(bert_classifier, full_train_dataloader, epochs=2)
+
+
+#Predictions on test set
+test_data.sample(5)
+
+#We also apply the preprocessing to the test set.
