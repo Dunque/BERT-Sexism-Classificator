@@ -1,0 +1,37 @@
+There are two ways of extending simple classifiers to do multi class classification:
+
+Source Wikipedia
+
+The first one is called One-vs.-rest strategy. It involves training a single classifier per class, 
+with the samples of that class as positive samples and all other samples as negatives. 
+This strategy requires the base classifiers to produce a real-valued confidence score for its decision. 
+During inference, you give a sample to each model, retrieve the probabilities of belonging to the positive 
+class and chose the class where the classifier is most confident.
+
+The second way is called one-vs.-one (OvO) reduction, one trains K (K − 1) / 2 binary classifiers for a 
+K-way multiclass problem; each receives the samples of a pair of classes from the original training set, 
+and must learn to distinguish these two classes. At prediction time, a voting scheme is applied: 
+all K (K − 1) / 2 classifiers are applied to an unseen sample and the class that got the highest number 
+of "+1" predictions gets predicted by the combined classifier. This approach can lead to ambiguity in some cases.
+
+I would recommend using One vs Rest. It is already implemented in some packages such as Sklearn
+
+http://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html
+
+
+i will try one versus rest, as it seems the most appropiate for my problem.
+
+
+BERT -----------------------------------------------------------------------------
+
+TO start with the multi-class classificator, i'm taking the binary one as a baseline.
+
+First, i translate the tags to numbers, and sotre them in a dictionary to later transform them back.
+
+I plot the label distribution, and it shows that half the tweets are non-sexist. This matches the
+half sexist half non sexist distribution of the binary classification, but now we face a new problem:
+Our dataset has been severly reduced, as we only get roughly 1/5 of half of the dataset for each label.
+
+Also, to show the results, i a m also going to plot a ROC, but this time i need to adapt it to a multiclass classifier
+I'll follow the official documentation shown here:
+https://scikit-learn.org/stable/auto_examples/model_selection/plot_roc.html#multiclass-settings

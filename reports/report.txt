@@ -1,0 +1,336 @@
+For starters, we will load the dataset, and translate it to both english and spanish, in order to double the amount of training and test examples
+This will provide better results
+
+for the transltation, i'll make use of google translate by importing the googletrans library.
+I'll also make use of panda's read_csv function, that'll allow me to write the results more
+comfortably into a well structured dataset file.
+
+while doing the trnalation, found error AttributeError: 'Translator' object has no attribute 'raise_Exception'
+I thought maybe I was doing too many API calls, and maybe I was overloading it.
+After searching online, i founf this thread:
+
+https://github.com/ssut/py-googletrans/issues/257
+
+So I should use a sleep() call in order to reduce the translations per second. Also, i found out that the maximum allowed number of translations is
+200k per day.
+
+tried doing it with sleep and changing the loop in order to produce less requests, but still got a 429 error code from translate.google.com
+Im going to try a different approach, this time using EasyNMT as the translator. Im goin to specifically use the Opus-MT model, which is considered
+the best overall, supporting translations between lots of languages. The o ther models only support tranlations to english, and their size is considerably bigger
+(being around 1.5 - 5GB, while Opus-Mt is only 300MB). Had to reinstall pytorch to match the version 1.12.
+
+THe new translation method is the same, in chunks of 50 tweets. It takes a really long time, but there are no more errors due to reaching maximum requests.
+
+I'm having a lot of problems translating the test data, the columns English and Spanish never get written. It was a problem with the name of a variable. It's solved now
+
+Finally, I have a script that translates both training and test sets to English and Spanish, adding a new column to a csv file with each translation.
+
+
+
+Now with the training and test
+
+BERT neural network base class
+https://pytorch.org/docs/stable/generated/torch.nn.Module.html
+
+basic BERT usage
+https://medium.com/@yashvardhanvs/classification-using-pre-trained-bert-model-transfer-learning-2d50f404ed4c
+
+Pytorch base model
+https://pytorch.org/docs/stable/generated/torch.nn.Module.html
+
+Pytorch linear 
+https://pytorch.org/docs/stable/generated/torch.nn.Linear.html?highlight=linear#torch.nn.Linear
+
+Pytorch dropout
+https://pytorch.org/docs/stable/generated/torch.nn.Dropout.html?highlight=dropout#torch.nn.Dropout
+paper -> https://arxiv.org/abs/1207.0580
+
+CrossEntropyLoss
+https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html
+
+BERT tokenization
+https://huggingface.co/transformers/v3.0.2/model_doc/bert.html#berttokenizer
+https://albertauyeung.github.io/2020/06/19/bert-tokenization.html/
+
+
+
+
+Now with the restart of the project
+
+
+Im going to bewgin by doing some prototyping with basic berts and pytorch.
+
+Sources:
+
+binary classificator:
+https://towardsdatascience.com/bert-text-classification-using-pytorch-723dfb8b6b5b
+code:
+https://colab.research.google.com/drive/1P4Hq0btDUDOTGkCHGzZbAx1lb0bTzMMa?usp=sharing
+preprocess of dataset:
+https://colab.research.google.com/drive/1xqkvuNDg0Opk-aZpicTVPNY4wUdC7Y7v?usp=sharing
+
+AVALIABLE BERT PRETRAINED MODELS:
+https://huggingface.co/models
+
+multilabel classificator:
+https://medium.com/analytics-vidhya/multi-label-text-classification-using-transformers-bert-93460838e62b
+https://curiousily.com/posts/multi-label-text-classification-with-bert-and-pytorch-lightning/
+
+
+first, binary classificator:
+
+IM prototyping a small bert with pytorch to see if it can improve the classification. ill start with the binary one, nad check if it works.
+first i have to see if i can fit the current dataset format into the project. 
+
+Also, instead of using regular Pytorch models i can use lightning pytorch.
+more on that later.
+
+first of all, i have to adapt the data to fit this example. i have to meddle with the fields for the TabularDataset.
+
+my labels are strings, so i have to  make changes to accommodate that fact. Also, for the spanish and english versions, i should
+create different tabular datasets, as the label for the translated english / spanish tweets is different.
+
+Another detail for this early implementation, it takes into consideration a preestablished validation dataset, instead of
+doing various iterations in order to perfect it. SEARCH FOR THE NAME OF THIS TECHNIQUE.
+
+ok so first i have to preprocess the data a bit. In this case, i have to select either spanish or english columns, and cull them for each task.
+First I'll do the english one, so i'll have to create two new files containing the following tags: id, task1, English -> ill rename them to: id, sexist, text
+
+i'll drop a validation file as well.
+
+now that i got the train validation and test files, im going to test the main script. Im having some troubles with torchtext, as it has moved some functionalities
+to a legacy format.
+
+https://github.com/pytorch/text/blob/master/examples/legacy_tutorial/migration_tutorial.ipynb
+
+I'm going to stick with the legacy methods for now, to do an initial test.
+
+Got this bert warning the first time i trained:
+
+Some weights of the model checkpoint at bert-base-uncased were not used when initializing BertForSequenceClassification: ['cls.predictions.transform.LayerNorm.weight', 'cls.predictions.transform.LayerNorm.bias', 'cls.predictions.transform.dense.bias', 'cls.predictions.decoder.weight', 'cls.seq_relationship.bias', 'cls.seq_relationship.weight', 'cls.predictions.bias', 'cls.predictions.transform.dense.weight']
+- This IS expected if you are initializing BertForSequenceClassification from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing BertForSequenceClassification from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Some weights of BertForSequenceClassification were not initialized from the model checkpoint at bert-base-uncased and are newly initialized: ['classifier.bias', 'classifier.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+
+and these are the results:
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           1     0.5669    0.0293    0.0557      3040
+           0     0.5180    0.9790    0.6776      3240
+
+    accuracy                         0.5193      6280
+   macro avg     0.5425    0.5041    0.3666      6280
+weighted avg     0.5417    0.5193    0.3765      6280
+
+not that good, but it's already way better than the results i got from the fastText classificator.
+
+Executed a second time, got these results:
+
+              precision    recall  f1-score   support
+
+           1     0.5920    0.6405    0.6153      3040
+           0     0.6346    0.5858    0.6092      3240
+
+    accuracy                         0.6123      6280
+   macro avg     0.6133    0.6131    0.6122      6280
+weighted avg     0.6140    0.6123    0.6121      6280
+
+
+Third time:
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           1     0.4242    0.0046    0.0091      3040
+           0     0.5156    0.9941    0.6790      3240
+
+    accuracy                         0.5151      6280
+   macro avg     0.4699    0.4994    0.3441      6280
+weighted avg     0.4714    0.5151    0.3547      6280
+
+these are really varied results, which is not a good thing. It can be due to the data preprocessing
+This link is for updating the torchtext from the legacy one used in this example.
+https://colab.research.google.com/github/pytorch/text/blob/master/examples/legacy_tutorial/migration_tutorial.ipynb
+following this guide
+
+
+I can also try this approach, which seems pretty good, considering it takes into account tweets
+
+https://skimai.com/fine-tuning-bert-for-sentiment-analysis/
+
+this second approach is wonderful. The fine tuning that it does to the bert makes it work so well.
+i chose the naive bayesian estimator, as it is the most efficient in text classification problems
+
+chart
+https://scikit-learn.org/stable/tutorial/machine_learning_map/index.html
+
+i will try other approaches as well.
+
+i sitll have the same problems with bert (same warnings as before), including the 
+Token indices sequence length is longer than the specified maximum sequence length for this model (525 > 512).
+i will look into this.
+
+i will also add link deletion to the preprocessing, as they dont give any important information.
+
+results before changing max length from 64 to 512:
+ Epoch  |  Batch  |  Train Loss  |  Val Loss  |  Val Acc  |  Elapsed 
+----------------------------------------------------------------------
+   1    |   20    |   0.697988   |     -      |     -     |   4.23   
+   1    |   40    |   0.671504   |     -      |     -     |   4.15   
+   1    |   60    |   0.580885   |     -      |     -     |   4.15   
+   1    |   80    |   0.569667   |     -      |     -     |   4.13   
+   1    |   100   |   0.544270   |     -      |     -     |   4.14   
+   1    |   120   |   0.553075   |     -      |     -     |   4.15   
+   1    |   140   |   0.488256   |     -      |     -     |   4.16   
+   1    |   160   |   0.515330   |     -      |     -     |   4.16   
+   1    |   180   |   0.529232   |     -      |     -     |   4.17   
+   1    |   196   |   0.513241   |     -      |     -     |   3.32   
+----------------------------------------------------------------------
+   1    |    -    |   0.568091   |  0.484661  |   78.35   |   42.15  
+----------------------------------------------------------------------
+
+
+ Epoch  |  Batch  |  Train Loss  |  Val Loss  |  Val Acc  |  Elapsed 
+----------------------------------------------------------------------
+   2    |   20    |   0.408602   |     -      |     -     |   4.38   
+   2    |   40    |   0.388529   |     -      |     -     |   4.18   
+   2    |   60    |   0.377981   |     -      |     -     |   4.18   
+   2    |   80    |   0.314946   |     -      |     -     |   4.19   
+   2    |   100   |   0.340139   |     -      |     -     |   4.19   
+   2    |   120   |   0.347933   |     -      |     -     |   4.18   
+   2    |   140   |   0.370206   |     -      |     -     |   4.22   
+   2    |   160   |   0.375398   |     -      |     -     |   4.23   
+   2    |   180   |   0.307859   |     -      |     -     |   4.18   
+   2    |   196   |   0.327546   |     -      |     -     |   3.33   
+----------------------------------------------------------------------
+   2    |    -    |   0.356757   |  0.452386  |   79.21   |   42.67  
+----------------------------------------------------------------------
+
+
+Training complete!
+AUC: 0.8817
+Accuracy: 79.23%
+
+
+results after changing max_len to 128 and removing links in the text preprocessing:
+
+ Epoch  |  Batch  |  Train Loss  |  Val Loss  |  Val Acc  |  Elapsed 
+----------------------------------------------------------------------
+   1    |   20    |   0.697234   |     -      |     -     |   7.89   
+   1    |   40    |   0.648893   |     -      |     -     |   8.11   
+   1    |   60    |   0.558079   |     -      |     -     |   8.12   
+   1    |   80    |   0.544709   |     -      |     -     |   8.10   
+   1    |   100   |   0.556015   |     -      |     -     |   8.08   
+   1    |   120   |   0.525289   |     -      |     -     |   8.08   
+   1    |   140   |   0.473479   |     -      |     -     |   8.16   
+   1    |   160   |   0.514800   |     -      |     -     |   8.16   
+   1    |   180   |   0.506720   |     -      |     -     |   8.16   
+   1    |   196   |   0.489482   |     -      |     -     |   6.31   
+----------------------------------------------------------------------
+   1    |    -    |   0.553469   |  0.479960  |   77.90   |   81.75  
+----------------------------------------------------------------------
+
+
+ Epoch  |  Batch  |  Train Loss  |  Val Loss  |  Val Acc  |  Elapsed 
+----------------------------------------------------------------------
+   2    |   20    |   0.372662   |     -      |     -     |   8.56   
+   2    |   40    |   0.360852   |     -      |     -     |   8.14   
+   2    |   60    |   0.355938   |     -      |     -     |   8.16   
+   2    |   80    |   0.294689   |     -      |     -     |   8.16   
+   2    |   100   |   0.315075   |     -      |     -     |   8.18   
+   2    |   120   |   0.336093   |     -      |     -     |   8.17   
+   2    |   140   |   0.342966   |     -      |     -     |   8.17   
+   2    |   160   |   0.370983   |     -      |     -     |   8.42   
+   2    |   180   |   0.317826   |     -      |     -     |   8.30   
+   2    |   196   |   0.355305   |     -      |     -     |   6.29   
+----------------------------------------------------------------------
+   2    |    -    |   0.342128   |  0.438008  |   80.66   |   83.08  
+----------------------------------------------------------------------
+
+
+Training complete!
+AUC: 0.8881
+Accuracy: 80.66%
+
+It yielded slightly better results, but it took twice the amount of time to train.
+
+but huggingface suggests using batch sizes of 16 - 32, so i will try with 32.
+
+I also added some more metrics, present in my previous approach: precision    recall  f1-score   support, as the function classification_report provides.
+Also i have implmented a graph depicting the confusion matrix of the classification. The false negative rate decreases dreastically from epoch 1 to epoch 2. 
+I will still try more epochs, and see if it gets any better with the current config.
+
+for now, i will update the adamW optimizer that is deprecated within the transofrmes library. i will switch to the one provided by pytorch.
+
+This changed the accuracy to 80.56%
+
+Start training...
+
+ Epoch  |  Batch  |  Train Loss  |  Val Loss  |  Val Acc  |  Elapsed 
+----------------------------------------------------------------------
+   1    |   20    |   0.698628   |     -      |     -     |   2.80   
+   1    |   40    |   0.662745   |     -      |     -     |   2.68   
+   1    |   60    |   0.594089   |     -      |     -     |   2.68   
+   1    |   80    |   0.552385   |     -      |     -     |   2.68   
+   1    |   100   |   0.564767   |     -      |     -     |   2.69   
+   1    |   120   |   0.549380   |     -      |     -     |   2.69   
+   1    |   140   |   0.483699   |     -      |     -     |   2.69   
+   1    |   160   |   0.504488   |     -      |     -     |   2.69   
+   1    |   180   |   0.507236   |     -      |     -     |   2.69   
+   1    |   196   |   0.498180   |     -      |     -     |   2.08   
+----------------------------------------------------------------------
+   1    |    -    |   0.563542   |  0.497324  |   76.44   |   26.38  
+----------------------------------------------------------------------
+Classification Report:
+              precision    recall  f1-score   support
+
+           1     0.7061    0.9148    0.7970       352
+           0     0.8760    0.6127    0.7211       346
+
+    accuracy                         0.7650       698
+   macro avg     0.7911    0.7637    0.7591       698
+weighted avg     0.7904    0.7650    0.7594       698
+
+
+
+ Epoch  |  Batch  |  Train Loss  |  Val Loss  |  Val Acc  |  Elapsed 
+----------------------------------------------------------------------
+   2    |   20    |   0.398568   |     -      |     -     |   2.86   
+   2    |   40    |   0.383872   |     -      |     -     |   2.70   
+   2    |   60    |   0.371110   |     -      |     -     |   2.70   
+   2    |   80    |   0.315637   |     -      |     -     |   2.70   
+   2    |   100   |   0.333777   |     -      |     -     |   2.71   
+   2    |   120   |   0.350343   |     -      |     -     |   2.70   
+   2    |   140   |   0.353282   |     -      |     -     |   2.71   
+   2    |   160   |   0.372732   |     -      |     -     |   2.71   
+   2    |   180   |   0.325542   |     -      |     -     |   2.71   
+   2    |   196   |   0.336749   |     -      |     -     |   2.10   
+----------------------------------------------------------------------
+   2    |    -    |   0.354740   |  0.463672  |   80.52   |   26.60  
+----------------------------------------------------------------------
+Classification Report:
+              precision    recall  f1-score   support
+
+           1     0.7903    0.8352    0.8122       352
+           0     0.8221    0.7746    0.7976       346
+
+    accuracy                         0.8052       698
+   macro avg     0.8062    0.8049    0.8049       698
+weighted avg     0.8061    0.8052    0.8049       698
+
+
+ADAMW paper:
+https://arxiv.org/abs/1711.05101
+
+general use paper
+https://arxiv.org/pdf/1905.05583.pdf
+
+changed plt.show to not interrupt the execution.
+
+#I have to change the final test part of the code to just predict the english part of the test dataset,
+#while writing the results in a file formated for submission.
+
+For now, this is the model that i will use for the english binary classification.

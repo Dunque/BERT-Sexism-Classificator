@@ -1,0 +1,80 @@
+the english bayesian model adapted to spanish works relatively the same, yielding a 69.63 precision.
+I am going to try uncased bert now, and see how it performs comparing to this.
+This might be a good model, giving that we don't have enough resources to properly run any more complex models.
+
+Best alpha:  4.0
+AUC: 0.7718
+Accuracy: 69.63%
+
+I removed the stopwrod removal from the text preprocessing, as well as removing the line that changed 't to not
+
+i found this article detailing the use of RoBERTa
+https://chriskhanhtran.github.io/posts/spanberta-bert-for-spanish-from-scratch/
+
+and i also found this paper on RoBERTuito, a specialized berto for spanish social media slang
+https://arxiv.org/pdf/2111.09453v1.pdf
+
+
+Now i'll try with the spanish one.
+
+The text translation to both languages will come in handy now, as i only need to slightly
+modify the code to be able to train and validate it with the spanish tweets
+
+the most important problems now are to fine tune it for the spanish language. That'll
+require a bit of research. For now, i'll try to execute it as is, to see the results i get.
+
+ Epoch  |  Batch  |  Train Loss  |  Val Loss  |  Val Acc  |  Elapsed 
+----------------------------------------------------------------------
+   1    |   20    |   0.703131   |     -      |     -     |   2.82   
+   1    |   40    |   0.691634   |     -      |     -     |   2.69   
+   1    |   60    |   0.678591   |     -      |     -     |   2.70   
+   1    |   80    |   0.686564   |     -      |     -     |   3.06   
+   1    |   100   |   0.675842   |     -      |     -     |   2.79   
+   1    |   120   |   0.661049   |     -      |     -     |   2.92   
+   1    |   140   |   0.648162   |     -      |     -     |   2.89   
+   1    |   160   |   0.640757   |     -      |     -     |   2.88   
+   1    |   180   |   0.647555   |     -      |     -     |   2.89   
+   1    |   196   |   0.635200   |     -      |     -     |   2.18   
+----------------------------------------------------------------------
+   1    |    -    |   0.667675   |  0.613904  |   67.25   |   27.81  
+----------------------------------------------------------------------
+Classification Report:
+              precision    recall  f1-score   support
+
+           1     0.6449    0.7841    0.7077       352
+           0     0.7185    0.5607    0.6299       346
+
+    accuracy                         0.6734       698
+   macro avg     0.6817    0.6724    0.6688       698
+weighted avg     0.6814    0.6734    0.6691       698
+
+
+
+ Epoch  |  Batch  |  Train Loss  |  Val Loss  |  Val Acc  |  Elapsed 
+----------------------------------------------------------------------
+   2    |   20    |   0.600838   |     -      |     -     |   2.90   
+   2    |   40    |   0.575480   |     -      |     -     |   2.79   
+   2    |   60    |   0.559565   |     -      |     -     |   2.83   
+   2    |   80    |   0.547057   |     -      |     -     |   2.78   
+   2    |   100   |   0.530120   |     -      |     -     |   2.79   
+   2    |   120   |   0.546478   |     -      |     -     |   2.80   
+   2    |   140   |   0.547505   |     -      |     -     |   2.80   
+   2    |   160   |   0.563020   |     -      |     -     |   2.81   
+   2    |   180   |   0.505298   |     -      |     -     |   2.85   
+   2    |   196   |   0.568906   |     -      |     -     |   2.20   
+----------------------------------------------------------------------
+   2    |    -    |   0.554368   |  0.556311  |   71.82   |   27.55  
+----------------------------------------------------------------------
+Classification Report:
+              precision    recall  f1-score   support
+
+           1     0.7056    0.7557    0.7298       352
+           0     0.7321    0.6792    0.7046       346
+
+    accuracy                         0.7178       698
+   macro avg     0.7188    0.7174    0.7172       698
+weighted avg     0.7187    0.7178    0.7173       698
+
+as the results suggest, with 2 epochs the accuracy reaches 71%, which is 
+way more than i expected. Now i'll fine tune it, starting with changing the words
+preprocessing.
