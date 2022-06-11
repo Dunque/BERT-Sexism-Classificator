@@ -36,6 +36,8 @@ from sklearn.metrics import classification_report, confusion_matrix
 ##Whole dataset training evaluation (softmax)
 import torch.nn.functional as F
 
+from sklearn.preprocessing import label_binarize
+
 #Data paths
 translated_data = 'data/EXIST2021_translatedTraining.csv'
 translated_test_data = 'data/EXIST2021_translatedTest.csv'
@@ -44,26 +46,16 @@ translated_test_data = 'data/EXIST2021_translatedTest.csv'
 data = pd.read_csv(translated_data)
 
 #Plot label distribution
-data.groupby('task2').size().plot.bar()
-plt.show()
+#data.groupby('task2').size().plot.bar()
+#plt.show()
 
 #convert labels to integers
 CategorisList = list(data.task2.unique())
-CategoryDict = {}
-
 CategorisList.remove('non-sexist')
-CategoryDict["non-sexist"] = 0
-
-i = 1
-for category in CategorisList:
-    CategoryDict[category] = i
-    i = i+1
-
-print(CategoryDict)
-
-#CategoriSexism = {CategorisList[index]: index for index in range(len(list(data.task2.unique())))}
-#data['LabelTask2'] = data['task2'].apply(lambda x : CategoriSexism[x])
-
+CategorisList.insert(0,'non-sexist')
+CategoriSexism = {CategorisList[index]: index for index in range(len(list(data.task2.unique())))}
+data['LabelTask2'] = data['task2'].apply(lambda x : CategoriSexism[x])
+print(CategoriSexism)
 
 #English version
 data = data[['id', 'English', 'LabelTask2']]
@@ -76,11 +68,10 @@ data = data.rename(columns= {'id':'id', 'English':'tweet', 'LabelTask2':'label'}
 # Display 5 random samples
 data.sample(5)
 
-stop()
-
 # Spitting the date into train and validation
 X = data.tweet.values
 y = data.label.values
+#y = label_binarize(y, classes=[0, 1, 2, 3, 4, 5])
 
 X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.1, random_state=2020)
 
@@ -109,93 +100,6 @@ if torch.cuda.is_available():
 else:
     print('No GPU available, using the CPU instead.')
     device = torch.device("cpu")
-
-
-#Evaluation on validation set
-def evaluate_roc(probs, y_true):
-    """
-    - Print AUC and accuracy on the test set
-    - Plot ROC
-    @params    probs (np.array): an array of predicted probabilities with shape (len(y_true), 2)
-    @params    y_true (np.array): an array of the true values with shape (len(y_true),)
-    """
-    n_classes = data.groupby('task2').size()
-
-    fpr = dict()
-    tpr = dict()
-    roc_auc = dict()
-    for i in range(n_classes):
-        fpr[i], tpr[i], _ = roc_curve(y_true[:, i], probs[:, i])
-        roc_auc[i] = auc(fpr[i], tpr[i])
-        print(f'AUC {i}: {roc_auc:.4f}')
-
-    # Compute micro-average ROC curve and ROC area
-    fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), y_score.ravel())
-    roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
-
-    fpr, tpr, threshold = roc_curve(y_true, preds)
-    roc_auc = auc(fpr, tpr)
-    print(f'AUC: {roc_auc:.4f}')
-       
-    # Get accuracy over the test set
-    y_pred = np.where(preds >= 0.5, 1, 0)
-    accuracy = accuracy_score(y_true, y_pred)
-    print(f'Accuracy: {accuracy*100:.2f}%')
-    
-
-    # First aggregate all false positive rates
-    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
-
-    # Then interpolate all ROC curves at this points
-    mean_tpr = np.zeros_like(all_fpr)
-    for i in range(n_classes):
-        mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
-
-    # Finally average it and compute AUC
-    mean_tpr /= n_classes
-
-    fpr["macro"] = all_fpr
-    tpr["macro"] = mean_tpr
-    roc_auc["macro"] = auc(fpr["macro"], tpr["macro"])
-
-    # Plot all ROC curves
-    plt.figure()
-    plt.plot(
-        fpr["micro"],
-        tpr["micro"],
-        label="micro-average ROC curve (area = {0:0.2f})".format(roc_auc["micro"]),
-        color="deeppink",
-        linestyle=":",
-        linewidth=4,
-    )
-
-    plt.plot(
-        fpr["macro"],
-        tpr["macro"],
-        label="macro-average ROC curve (area = {0:0.2f})".format(roc_auc["macro"]),
-        color="navy",
-        linestyle=":",
-        linewidth=4,
-    )
-
-    colors = cycle(["aqua", "darkorange", "cornflowerblue"])
-    for i, color in zip(range(n_classes), colors):
-        plt.plot(
-            fpr[i],
-            tpr[i],
-            color=color,
-            lw=lw,
-            label="ROC curve of class {0} (area = {1:0.2f})".format(i, roc_auc[i]),
-        )
-
-    plt.plot([0, 1], [0, 1], "k--", lw=lw)
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("Some extension of Receiver operating characteristic to multiclass")
-    plt.legend(loc="lower right")
-    plt.show()
 
 ##BERT
 
@@ -334,7 +238,7 @@ class BertClassifier(nn.Module):
         """
         super(BertClassifier, self).__init__()
         # Specify hidden size of BERT, hidden size of our classifier, and number of labels
-        D_in, H, D_out = 768, 50, 2
+        D_in, H, D_out = 768, 50, 6
 
         # Instantiate BERT model
         self.bert = BertModel.from_pretrained('bert-base-uncased')
@@ -557,8 +461,8 @@ def evaluate(model, val_dataloader, avg_train_loss, time_elapsed, epoch_i):
 
 #Actual training
 set_seed(42)    # Set seed for reproducibility
-bert_classifier, optimizer, scheduler = initialize_model(epochs=2)
-train(bert_classifier, train_dataloader, val_dataloader, epochs=2, evaluation=True)
+bert_classifier, optimizer, scheduler = initialize_model(epochs=1)
+train(bert_classifier, train_dataloader, val_dataloader, epochs=1, evaluation=False)
 
 
 ##EVALUATION on validation set
@@ -591,9 +495,98 @@ def bert_predict(model, test_dataloader):
 
     return probs
 
+
+#Evaluation on validation set
+def evaluate_roc(probs, y_true):
+    """
+    - Print AUC and accuracy on the test set
+    - Plot ROC
+    @params    probs (np.array): an array of predicted probabilities with shape (len(y_true), 2)
+    @params    y_true (np.array): an array of the true values with shape (len(y_true),)
+    """
+    #n_classes = data.groupby('label').size()
+    n_classes = 6
+
+    print("probs : ", probs)
+    print("y_true : ", y_true)
+
+
+    print("probs shape: ", probs.shape)
+    print("y_true shape: ", y_true.shape)
+
+    fpr = dict()
+    tpr = dict()
+    roc_auc = dict()
+    for i in range(n_classes):
+        fpr[i], tpr[i], _ = roc_curve(y_true[:, i], probs[:, i])
+        roc_auc[i] = auc(fpr[i], tpr[i])
+        print(f'AUC {i}: {roc_auc[i]:.4f}')
+
+
+    # Compute micro-average ROC curve and ROC area
+    fpr["micro"], tpr["micro"], _ = roc_curve(y_true.ravel(), probs.ravel())
+    roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
+
+    # First aggregate all false positive rates
+    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
+
+    # Then interpolate all ROC curves at this points
+    mean_tpr = np.zeros_like(all_fpr)
+    for i in range(n_classes):
+        mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
+
+    # Finally average it and compute AUC
+    mean_tpr /= n_classes
+
+    fpr["macro"] = all_fpr
+    tpr["macro"] = mean_tpr
+    roc_auc["macro"] = auc(fpr["macro"], tpr["macro"])
+
+    # Plot all ROC curves
+    plt.figure()
+    lw = 2
+    plt.plot(
+        fpr["micro"],
+        tpr["micro"],
+        label="micro-average ROC curve (area = {0:0.2f})".format(roc_auc["micro"]),
+        color="deeppink",
+        linestyle=":",
+        linewidth=4,
+    )
+
+    plt.plot(
+        fpr["macro"],
+        tpr["macro"],
+        label="macro-average ROC curve (area = {0:0.2f})".format(roc_auc["macro"]),
+        color="navy",
+        linestyle=":",
+        linewidth=4,
+    )
+
+    colors = cycle(["aqua", "darkorange", "cornflowerblue"])
+    for i, color in zip(range(n_classes), colors):
+        plt.plot(
+            fpr[i],
+            tpr[i],
+            color=color,
+            lw=lw,
+            label="ROC curve of class {0} (area = {1:0.2f})".format(i, roc_auc[i]),
+        )
+
+    plt.plot([0, 1], [0, 1], "k--", lw=lw)
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("Some extension of Receiver operating characteristic to multiclass")
+    plt.legend(loc="lower right")
+    plt.show()
+
 # Compute predicted probabilities on the test set
 probs = bert_predict(bert_classifier, val_dataloader)
 
+y = label_binarize(y, classes=[0, 1, 2, 3, 4, 5])
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.1, random_state=2020)
 # Evaluate the Bert classifier
 evaluate_roc(probs, y_val)
 

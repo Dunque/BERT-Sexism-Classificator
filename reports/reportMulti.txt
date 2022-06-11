@@ -35,3 +35,13 @@ Our dataset has been severly reduced, as we only get roughly 1/5 of half of the 
 Also, to show the results, i a m also going to plot a ROC, but this time i need to adapt it to a multiclass classifier
 I'll follow the official documentation shown here:
 https://scikit-learn.org/stable/auto_examples/model_selection/plot_roc.html#multiclass-settings
+
+
+As i adapted the roc plot for the multiclass clasifier, now i'm getting a cuda error. It might be due to this
+https://stackoverflow.com/questions/51691563/cuda-runtime-error-59-device-side-assert-triggered
+
+It was resolved after changing the number of labels from 2 to 6 in the line 
+
+        super(BertClassifier, self).__init__()
+        # Specify hidden size of BERT, hidden size of our classifier, and number of labels
+        D_in, H, D_out = 768, 50, 6
