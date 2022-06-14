@@ -52,7 +52,8 @@ BERT tokenization
 https://huggingface.co/transformers/v3.0.2/model_doc/bert.html#berttokenizer
 https://albertauyeung.github.io/2020/06/19/bert-tokenization.html/
 
-
+ROC AUC 
+https://people.inf.elte.hu/kiss/11dwhdm/roc.pdf
 
 
 Now with the restart of the project

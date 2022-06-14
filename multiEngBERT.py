@@ -46,8 +46,18 @@ translated_test_data = 'data/EXIST2021_translatedTest.csv'
 data = pd.read_csv(translated_data)
 
 #Plot label distribution
-#data.groupby('task2').size().plot.bar()
-#plt.show()
+plot = plt.subplot()
+data.groupby('task2').size().plot.bar()
+plot.set_xlabel('labels', fontsize=10)
+plot.xaxis.set_label_position('bottom')
+plt.xticks(rotation=0)
+plot.xaxis.tick_bottom()
+
+plot.set_ylabel('amount of tweets', fontsize=10)
+plt.yticks(rotation=0)
+
+plt.title('Label distribution', fontsize=15)
+plt.show()
 
 #convert labels to integers
 CategorisList = list(data.task2.unique())
@@ -444,25 +454,30 @@ def evaluate(model, val_dataloader, avg_train_loss, time_elapsed, epoch_i):
     print("-"*70)
 
     print('Classification Report:')
-    print(classification_report(y_true, y_pred, labels=[1,0], digits=4))
+    print(classification_report(y_true, y_pred, digits=4))
     
-    cm = confusion_matrix(y_true, y_pred, labels=[1,0])
+    cm = confusion_matrix(y_true, y_pred)
     ax= plt.subplot()
-    sns.heatmap(cm, annot=True, ax = ax, cmap='Blues', fmt="d")
+    sns.heatmap(cm, annot=True, ax = ax, cmap='coolwarm', fmt="d")
 
-    ax.set_title('Confusion Matrix')
+    # labels, title and ticks
+    ax.set_xlabel('Predicted', fontsize=12)
+    ax.xaxis.set_label_position('bottom')
+    plt.xticks(rotation=0)
+    ax.xaxis.set_ticklabels(CategoriSexism.keys(), fontsize = 8)
+    ax.xaxis.tick_bottom()
 
-    ax.set_xlabel('Predicted Labels')
-    ax.set_ylabel('True Labels')
+    ax.set_ylabel('True', fontsize=12)
+    ax.yaxis.set_ticklabels(CategoriSexism.keys(), fontsize = 8)
+    plt.yticks(rotation=0)
 
-    ax.xaxis.set_ticklabels(['FAKE', 'REAL'])
-    ax.yaxis.set_ticklabels(['FAKE', 'REAL'])
+    plt.title('Refined Confusion Matrix', fontsize=15)
     plt.show()
 
 #Actual training
 set_seed(42)    # Set seed for reproducibility
-bert_classifier, optimizer, scheduler = initialize_model(epochs=1)
-train(bert_classifier, train_dataloader, val_dataloader, epochs=1, evaluation=False)
+bert_classifier, optimizer, scheduler = initialize_model(epochs=4)
+train(bert_classifier, train_dataloader, val_dataloader, epochs=4, evaluation=True)
 
 
 ##EVALUATION on validation set
@@ -601,36 +616,3 @@ full_train_dataloader = DataLoader(full_train_data, sampler=full_train_sampler, 
 set_seed(42)
 bert_classifier, optimizer, scheduler = initialize_model(epochs=2)
 train(bert_classifier, full_train_dataloader, epochs=2)
-
-
-#Predictions on test set
-#I have to change this to just predict the english part of the test dataset,
-#while writing the results in a file formated for submission.
-"""test_data.sample(5)
-
-#We also apply the preprocessing to the test set.
-
-
-# Run `preprocessing_for_bert` on the test set
-print('Tokenizing data...')
-test_inputs, test_masks = preprocessing_for_bert(test_data.tweet)
-
-# Create the DataLoader for our test set
-test_dataset = TensorDataset(test_inputs, test_masks)
-test_sampler = SequentialSampler(test_dataset)
-test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=32)
-
-# Predictions
-# Compute predicted probabilities on the test set
-probs = bert_predict(bert_classifier, test_dataloader)
-
-# Get predictions from the probabilities
-threshold = 0.9
-preds = np.where(probs[:, 1] > threshold, 1, 0)
-
-# Number of tweets predicted non-negative
-print("Number of tweets predicted non-negative: ", preds.sum())
-
-output = test_data[preds==1]
-list(output.sample(20).tweet) """
-

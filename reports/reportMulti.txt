@@ -45,3 +45,72 @@ It was resolved after changing the number of labels from 2 to 6 in the line
         super(BertClassifier, self).__init__()
         # Specify hidden size of BERT, hidden size of our classifier, and number of labels
         D_in, H, D_out = 768, 50, 6
+
+Changed the way the metrics are displayed, in order to see them adapted to each class
+This is the new report:
+
+ Epoch  |  Batch  |  Train Loss  |  Val Loss  |  Val Acc  |  Elapsed 
+----------------------------------------------------------------------
+   1    |   20    |   1.531213   |     -      |     -     |   2.81   
+   1    |   40    |   1.348175   |     -      |     -     |   2.68   
+   1    |   60    |   1.242131   |     -      |     -     |   2.69   
+   1    |   80    |   1.191993   |     -      |     -     |   2.69   
+   1    |   100   |   1.117195   |     -      |     -     |   2.69   
+   1    |   120   |   1.093309   |     -      |     -     |   2.69   
+   1    |   140   |   1.064244   |     -      |     -     |   2.70   
+   1    |   160   |   0.979898   |     -      |     -     |   2.70   
+   1    |   180   |   0.965570   |     -      |     -     |   2.70   
+   1    |   196   |   0.944086   |     -      |     -     |   2.09   
+----------------------------------------------------------------------
+   1    |    -    |   1.153864   |  0.942012  |   66.25   |   26.43  
+----------------------------------------------------------------------
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.7079    0.8757    0.7829       346
+           1     0.7209    0.6263    0.6703        99
+           2     0.4483    0.2364    0.3095        55
+           3     0.5294    0.5625    0.5455        48
+           4     0.5849    0.3444    0.4336        90
+           5     0.5098    0.4333    0.4685        60
+
+    accuracy                         0.6619       698
+   macro avg     0.5835    0.5131    0.5350       698
+weighted avg     0.6442    0.6619    0.6412       698
+
+
+
+ Epoch  |  Batch  |  Train Loss  |  Val Loss  |  Val Acc  |  Elapsed 
+----------------------------------------------------------------------
+   2    |   20    |   0.837719   |     -      |     -     |   2.99   
+   2    |   40    |   0.736027   |     -      |     -     |   2.89   
+   2    |   60    |   0.747189   |     -      |     -     |   2.73   
+   2    |   80    |   0.772422   |     -      |     -     |   2.76   
+   2    |   100   |   0.805468   |     -      |     -     |   2.84   
+   2    |   120   |   0.783594   |     -      |     -     |   2.87   
+   2    |   140   |   0.703495   |     -      |     -     |   2.74   
+   2    |   160   |   0.755850   |     -      |     -     |   2.75   
+   2    |   180   |   0.718206   |     -      |     -     |   2.74   
+   2    |   196   |   0.744953   |     -      |     -     |   2.13   
+----------------------------------------------------------------------
+   2    |    -    |   0.761200   |  0.882772  |   67.53   |   27.43  
+----------------------------------------------------------------------
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.8123    0.8006    0.8064       346
+           1     0.6404    0.7374    0.6854        99
+           2     0.4872    0.3455    0.4043        55
+           3     0.5385    0.5833    0.5600        48
+           4     0.4943    0.4778    0.4859        90
+           5     0.4769    0.5167    0.4960        60
+
+    accuracy                         0.6748       698
+   macro avg     0.5749    0.5769    0.5730       698
+weighted avg     0.6736    0.6748    0.6726       698
+
+the non_sexist label seems to outperform the others, as it was expected, due to its larger presence in the dataset.
+
+I will try some dataset balancing techniques in order to improve these results.
+
+
