@@ -350,7 +350,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=4, evaluation=Fal
 
         # For each batch of training data...
         for step, batch in enumerate(train_dataloader):
-            batch_counts +=1
+            batch_counts += 1
             # Load batch to GPU
             b_input_ids, b_attn_mask, b_labels = tuple(t.to(device) for t in batch)
 
@@ -394,7 +394,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=4, evaluation=Fal
         # =======================================
         #               Evaluation
         # =======================================
-        if evaluation == True:
+        if evaluation:
             # After the completion of each training epoch, measure the model's performance
             # on our validation set.
 
@@ -457,8 +457,8 @@ def evaluate(model, val_dataloader, avg_train_loss, time_elapsed, epoch_i):
     print(classification_report(y_true, y_pred, digits=4))
     
     cm = confusion_matrix(y_true, y_pred)
-    ax= plt.subplot()
-    sns.heatmap(cm, annot=True, ax = ax, cmap='coolwarm', fmt="d")
+    ax = plt.subplot()
+    sns.heatmap(cm, annot=True, ax=ax, cmap='coolwarm', fmt="d")
 
     # labels, title and ticks
     ax.set_xlabel('Predicted', fontsize=12)
@@ -474,8 +474,10 @@ def evaluate(model, val_dataloader, avg_train_loss, time_elapsed, epoch_i):
     plt.title('Refined Confusion Matrix', fontsize=15)
     plt.show()
 
-#Actual training
-set_seed(42)    # Set seed for reproducibility
+
+# Actual training
+# Set seed for reproducibility
+set_seed(42)
 bert_classifier, optimizer, scheduler = initialize_model(epochs=4)
 train(bert_classifier, train_dataloader, val_dataloader, epochs=4, evaluation=True)
 
@@ -524,7 +526,6 @@ def evaluate_roc(probs, y_true):
 
     print("probs : ", probs)
     print("y_true : ", y_true)
-
 
     print("probs shape: ", probs.shape)
     print("y_true shape: ", y_true.shape)
@@ -597,6 +598,7 @@ def evaluate_roc(probs, y_true):
     plt.legend(loc="lower right")
     plt.show()
 
+
 # Compute predicted probabilities on the test set
 probs = bert_predict(bert_classifier, val_dataloader)
 
@@ -606,7 +608,7 @@ X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.1, random_st
 evaluate_roc(probs, y_val)
 
 
-#TRAIN THE MODEL WITH THE WHOLE DATASET
+# TRAIN THE MODEL WITH THE WHOLE DATASET
 # Concatenate the train set and the validation set
 full_train_data = torch.utils.data.ConcatDataset([train_data, val_data])
 full_train_sampler = RandomSampler(full_train_data)
