@@ -241,4 +241,7 @@ I will try some dataset balancing techniques in order to improve these results.
 https://d1wqtxts1xzle7.cloudfront.net/60427831/poster_unbalanced-with-cover-page-v2.pdf?Expires=1655208946&Signature=RT0O3fTK35yTQR4mDo3Fil0WsaeIjOBsvfB0tHmg7NV2hroJFHlOQaaeg5pUjV--zWYGN3dqxir15Kc7ZU5Rbn3FU5o19d6PnsPhaWRCoood~UhhyAwCb0AqyTnT4Wi6AGJeXbFaeSJ5ob7ekXkrnhLcYD858R0-dCT8mmd00TqiNRLLyGX~8xPjy5dsFrWOLqeqSulC~JhvVepTR55FtJm5WwAxkJJBAiHHvlQBEP0cM~lzG9Q-KR2u~l50~B5mESMb8w7J3lKlGqn3vZ7Q36FeyVl97xy2aahULqFLQWKwQH7ehScsLHqgXSaFNuhWZMNXRL4qskuhhEgWc6aQ5w__&Key-Pair-Id=APKAJLOHF5GGSLRBV4ZA
 https://www.scirp.org/pdf/JILSA_2015111114204642.pdf
 
+OVer sampling and under sampling
+https://www.jmlr.org/papers/volume18/16-365/16-365.pdf
+
 

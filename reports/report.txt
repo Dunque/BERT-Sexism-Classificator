@@ -1,11 +1,11 @@
 For starters, we will load the dataset, and translate it to both english and spanish, in order to double the amount of training and test examples
 This will provide better results
 
-for the transltation, i'll make use of google translate by importing the googletrans library.
+for the translation, i'll make use of google translate by importing the googletrans library.
 I'll also make use of panda's read_csv function, that'll allow me to write the results more
 comfortably into a well structured dataset file.
 
-while doing the trnalation, found error AttributeError: 'Translator' object has no attribute 'raise_Exception'
+while doing the translation, found error AttributeError: 'Translator' object has no attribute 'raise_Exception'
 I thought maybe I was doing too many API calls, and maybe I was overloading it.
 After searching online, i founf this thread:
 
