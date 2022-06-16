@@ -1,0 +1,14 @@
+I've seen some models of bert which specialise in the classification of tweets. So I decided to try it to see if it
+outperforms the base bert model that I have right now.
+
+It uses Roberta as a base, with a few differences over the regular bert.
+https://arxiv.org/abs/1907.11692
+
+Here is the Bertweet paper:
+https://aclanthology.org/2020.emnlp-demos.2.pdf
+
+First off, i removed the text preprocessing that i used for the base bert, and switched to the recommended TweetNormalizer
+library
+
+
+

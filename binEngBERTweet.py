@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, roc_curve, auc
 
 # BERT BERT
-from transformers import RobertaTokenizer
+from transformers import AutoTokenizer
 
 ##DATALOADER
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
@@ -33,6 +33,8 @@ from sklearn.metrics import classification_report, confusion_matrix
 ##Whole dataset training evaluation (softmax)
 import torch.nn.functional as F
 
+from TweetNormalizer import normalizeTweet
+
 # Data paths
 translated_data = 'data/EXIST2021_translatedTraining.csv'
 translated_test_data = 'data/EXIST2021_translatedTest.csv'
@@ -43,9 +45,9 @@ data = pd.read_csv(translated_data)
 # convert labels to integers
 data['LabelTask1'] = data['task1'].apply(lambda x: 1 if x == 'sexist' else 0)
 
-# Spanish version
-data = data.reindex(columns=['id', 'Spanish', 'LabelTask1'])
-data = data.rename(columns={'id': 'id', 'Spanish': 'tweet', 'LabelTask1': 'label'})
+# English version
+data = data[['id', 'English', 'LabelTask1']]
+data = data.rename(columns={'id': 'id', 'English': 'tweet', 'LabelTask1': 'label'})
 
 # Display 5 random samples
 data.sample(5)
@@ -56,18 +58,20 @@ y = data.label.values
 
 X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.1, random_state=2020)
 
+
 # Load test data
 test_data = pd.read_csv(translated_test_data)
 
 # Keep important columns
-# Spanish
-test_data = test_data[['id', 'Spanish']]
-test_data = test_data.rename(columns={'id': 'id', 'Spanish': 'tweet'})
+# English
+test_data = test_data[['id', 'English']]
+test_data = test_data.rename(columns={'id': 'id', 'English': 'tweet'})
 
 # Display 5 samples from the test data
 test_data.sample(5)
 
-# Try to get the gpu to work instead of the cpu
+
+##Try to get the gpu to work instead of the cpu
 if torch.cuda.is_available():
     device = torch.device("cuda")
     print(f'There are {torch.cuda.device_count()} GPU(s) available.')
@@ -78,36 +82,14 @@ else:
     device = torch.device("cpu")
 
 
-## BERT
-
-def text_preprocessing(text):
-    """
-    - Remove entity mentions (eg. '@united')
-    - Correct errors (eg. '&amp;' to '&')
-    @param    text (str): a string to be processed.
-    @return   text (Str): the processed string.
-    """
-    # Remove '@name'
-    text = re.sub(r'(@.*?)[\s]', ' ', text)
-
-    # Replace '&amp;' with '&'
-    text = re.sub(r'&amp;', '&', text)
-
-    # Remove trailing whitespace
-    text = re.sub(r'\s+', ' ', text).strip()
-
-    # Remove links
-    text = re.sub(r"http\S+", "", text)
-
-    return text
-
-
-# Print sentence 0
-print('Original: ', X[0])
-print('Processed: ', text_preprocessing(X[0]))
-
 # BERT
-tokenizer = RobertaTokenizer.from_pretrained('skimai/spanberta-base-cased')
+
+# Load the BERT tokenizer
+tokenizer = AutoTokenizer.from_pretrained("vinai/bertweet-base")
+
+# Example of nomalized tweet
+print('Original: ', X[0])
+print('Processed: ', normalizeTweet(X[0]))
 
 # Create a function to tokenize a set of texts
 def preprocessing_for_bert(data):
@@ -131,7 +113,7 @@ def preprocessing_for_bert(data):
         #    (5) Create attention mask
         #    (6) Return a dictionary of outputs
         encoded_sent = tokenizer.encode_plus(
-            text=text_preprocessing(sent),  # Preprocess sentence
+            text=normalizeTweet(sent),  # Preprocess sentence
             add_special_tokens=True,  # Add `[CLS]` and `[SEP]`
             max_length=MAX_LEN,  # Max length to truncate/pad
             padding='max_length',  # Pad sentence to max length
@@ -185,7 +167,7 @@ train_labels = torch.tensor(y_train)
 val_labels = torch.tensor(y_val)
 
 # For fine-tuning BERT, the authors recommend a batch size of 16 or 32.
-batch_size = 16
+batch_size = 32
 
 # Create the DataLoader for our training set
 train_data = TensorDataset(train_inputs, train_masks, train_labels)
@@ -216,7 +198,7 @@ class BertClassifier(nn.Module):
         D_in, H, D_out = 768, 50, 2
 
         # Instantiate BERT model
-        self.bert = RobertaModel.from_pretrained('skimai/spanberta-base-cased')
+        self.bert = RobertaModel.from_pretrained('vinai/bertweet-base')
 
         # Instantiate an one-layer feed-forward classifier
         self.classifier = nn.Sequential(
@@ -267,9 +249,8 @@ def initialize_model(epochs=4):
 
     # Create the optimizer
     optimizer = AdamW(bert_classifier.parameters(),
-                      lr=2e-5,  # Default learning rate
-                      eps=1e-8,  # Default epsilon value
-                      betas=(0.9, 0.999)
+                      lr=5e-5,  # Default learning rate
+                      eps=1e-8  # Default epsilon value
                       )
 
     # Total number of training steps
@@ -445,8 +426,8 @@ def evaluate(model, val_dataloader, avg_train_loss, time_elapsed, epoch_i):
 
 # Actual training
 set_seed(42)  # Set seed for reproducibility
-bert_classifier, optimizer, scheduler = initialize_model(epochs=3)
-train(bert_classifier, train_dataloader, val_dataloader, epochs=3, evaluation=True)
+bert_classifier, optimizer, scheduler = initialize_model(epochs=4)
+train(bert_classifier, train_dataloader, val_dataloader, epochs=4, evaluation=True)
 
 
 ##EVALUATION on validation set
@@ -527,33 +508,3 @@ set_seed(42)
 bert_classifier, optimizer, scheduler = initialize_model(epochs=2)
 train(bert_classifier, full_train_dataloader, epochs=2)
 
-# Predictions on test set
-# I have to change this to just predict the english part of the test dataset,
-# while writing the results in a file formated for submission.
-"""test_data.sample(5)
-
-#We also apply the preprocessing to the test set.
-
-
-# Run `preprocessing_for_bert` on the test set
-print('Tokenizing data...')
-test_inputs, test_masks = preprocessing_for_bert(test_data.tweet)
-
-# Create the DataLoader for our test set
-test_dataset = TensorDataset(test_inputs, test_masks)
-test_sampler = SequentialSampler(test_dataset)
-test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=32)
-
-# Predictions
-# Compute predicted probabilities on the test set
-probs = bert_predict(bert_classifier, test_dataloader)
-
-# Get predictions from the probabilities
-threshold = 0.9
-preds = np.where(probs[:, 1] > threshold, 1, 0)
-
-# Number of tweets predicted non-negative
-print("Number of tweets predicted non-negative: ", preds.sum())
-
-output = test_data[preds==1]
-list(output.sample(20).tweet) """

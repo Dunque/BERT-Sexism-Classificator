@@ -8,11 +8,13 @@ import matplotlib.pyplot as plt
 # Spitting the date into train and validation
 from sklearn.model_selection import train_test_split
 
-# Evaluation on validation set
+import torch
+
+#Evaluation on validation set
 from sklearn.metrics import accuracy_score, roc_curve, auc
 
-# BERT BERT
-from transformers import RobertaTokenizer
+#BERT BERT
+from transformers import AutoTokenizer
 
 ##DATALOADER
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
@@ -20,7 +22,7 @@ from torch.utils.data import TensorDataset, DataLoader, RandomSampler, Sequentia
 ##TRAINING
 import torch
 import torch.nn as nn
-from transformers import RobertaModel
+from transformers import AutoModel
 
 ##OPTIMIZER
 from transformers import get_linear_schedule_with_warmup
@@ -33,19 +35,23 @@ from sklearn.metrics import classification_report, confusion_matrix
 ##Whole dataset training evaluation (softmax)
 import torch.nn.functional as F
 
-# Data paths
+# TWEET PREPROCESSING
+from transformers import AutoTokenizer
+from pysentimiento.preprocessing import preprocess_tweet
+
+#Data paths
 translated_data = 'data/EXIST2021_translatedTraining.csv'
 translated_test_data = 'data/EXIST2021_translatedTest.csv'
 
 # Load data and set labels
 data = pd.read_csv(translated_data)
 
-# convert labels to integers
-data['LabelTask1'] = data['task1'].apply(lambda x: 1 if x == 'sexist' else 0)
+#convert labels to integers
+data['LabelTask1'] = data['task1'].apply(lambda x : 1 if x == 'sexist' else 0)
 
-# Spanish version
+#Spanish version
 data = data.reindex(columns=['id', 'Spanish', 'LabelTask1'])
-data = data.rename(columns={'id': 'id', 'Spanish': 'tweet', 'LabelTask1': 'label'})
+data = data.rename(columns= {'id':'id', 'Spanish':'tweet', 'LabelTask1':'label'})
 
 # Display 5 random samples
 data.sample(5)
@@ -59,16 +65,17 @@ X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.1, random_st
 # Load test data
 test_data = pd.read_csv(translated_test_data)
 
-# Keep important columns
+
 # Spanish
 test_data = test_data[['id', 'Spanish']]
-test_data = test_data.rename(columns={'id': 'id', 'Spanish': 'tweet'})
+test_data = test_data.rename(columns= {'id':'id', 'Spanish':'tweet'})
 
 # Display 5 samples from the test data
 test_data.sample(5)
 
-# Try to get the gpu to work instead of the cpu
-if torch.cuda.is_available():
+
+##Try to get the gpu to work instead of the cpu
+if torch.cuda.is_available():       
     device = torch.device("cuda")
     print(f'There are {torch.cuda.device_count()} GPU(s) available.')
     print('Device name:', torch.cuda.get_device_name(0))
@@ -78,36 +85,15 @@ else:
     device = torch.device("cpu")
 
 
-## BERT
 
-def text_preprocessing(text):
-    """
-    - Remove entity mentions (eg. '@united')
-    - Correct errors (eg. '&amp;' to '&')
-    @param    text (str): a string to be processed.
-    @return   text (Str): the processed string.
-    """
-    # Remove '@name'
-    text = re.sub(r'(@.*?)[\s]', ' ', text)
+##BERT
 
-    # Replace '&amp;' with '&'
-    text = re.sub(r'&amp;', '&', text)
-
-    # Remove trailing whitespace
-    text = re.sub(r'\s+', ' ', text).strip()
-
-    # Remove links
-    text = re.sub(r"http\S+", "", text)
-
-    return text
-
-
-# Print sentence 0
+# Example of nomalized tweet
 print('Original: ', X[0])
-print('Processed: ', text_preprocessing(X[0]))
+print('Processed: ', preprocess_tweet(X[0]))
 
-# BERT
-tokenizer = RobertaTokenizer.from_pretrained('skimai/spanberta-base-cased')
+# Load the BERT tokenizer
+tokenizer = AutoTokenizer.from_pretrained('pysentimiento/robertuito-base-cased')
 
 # Create a function to tokenize a set of texts
 def preprocessing_for_bert(data):
@@ -131,15 +117,15 @@ def preprocessing_for_bert(data):
         #    (5) Create attention mask
         #    (6) Return a dictionary of outputs
         encoded_sent = tokenizer.encode_plus(
-            text=text_preprocessing(sent),  # Preprocess sentence
-            add_special_tokens=True,  # Add `[CLS]` and `[SEP]`
-            max_length=MAX_LEN,  # Max length to truncate/pad
-            padding='max_length',  # Pad sentence to max length
-            truncation=True,  # Truncate to adapt to the 512 token limit
-            # return_tensors='pt',           # Return PyTorch tensor
-            return_attention_mask=True  # Return attention mask
-        )
-
+            text=preprocess_tweet(sent),  # Preprocess sentence
+            add_special_tokens=True,        # Add `[CLS]` and `[SEP]`
+            max_length=MAX_LEN,             # Max length to truncate/pad
+            padding='max_length',              # Pad sentence to max length
+            truncation=True,                # Truncate to adapt to the 512 token limit
+            #return_tensors='pt',           # Return PyTorch tensor
+            return_attention_mask=True      # Return attention mask
+            )
+        
         # Add the outputs to the lists
         input_ids.append(encoded_sent.get('input_ids'))
         attention_masks.append(encoded_sent.get('attention_mask'))
@@ -150,8 +136,7 @@ def preprocessing_for_bert(data):
 
     return input_ids, attention_masks
 
-
-# LENGTH
+#LENGTH
 
 # Concatenate train data and test data
 all_tweets = np.concatenate([data.tweet.values, test_data.tweet.values])
@@ -163,7 +148,8 @@ encoded_tweets = [tokenizer.encode(sent, add_special_tokens=True) for sent in al
 max_len = max([len(sent) for sent in encoded_tweets])
 print('Max length: ', max_len)
 
-# TOKENIZE
+
+#TOKENIZE
 
 # Specify `MAX_LEN`
 MAX_LEN = 64
@@ -178,6 +164,7 @@ print('Tokenizing data...')
 train_inputs, train_masks = preprocessing_for_bert(X_train)
 val_inputs, val_masks = preprocessing_for_bert(X_val)
 
+
 ##DATALOADER
 
 # Convert other data types to torch.Tensor
@@ -185,7 +172,7 @@ train_labels = torch.tensor(y_train)
 val_labels = torch.tensor(y_val)
 
 # For fine-tuning BERT, the authors recommend a batch size of 16 or 32.
-batch_size = 16
+batch_size = 96
 
 # Create the DataLoader for our training set
 train_data = TensorDataset(train_inputs, train_masks, train_labels)
@@ -204,7 +191,6 @@ val_dataloader = DataLoader(val_data, sampler=val_sampler, batch_size=batch_size
 class BertClassifier(nn.Module):
     """Bert Model for Classification Tasks.
     """
-
     def __init__(self, freeze_bert=False):
         """
         @param    bert: a BertModel object
@@ -216,13 +202,13 @@ class BertClassifier(nn.Module):
         D_in, H, D_out = 768, 50, 2
 
         # Instantiate BERT model
-        self.bert = RobertaModel.from_pretrained('skimai/spanberta-base-cased')
+        self.bert = AutoModel.from_pretrained('pysentimiento/robertuito-base-cased')
 
         # Instantiate an one-layer feed-forward classifier
         self.classifier = nn.Sequential(
             nn.Linear(D_in, H),
             nn.ReLU(),
-            # nn.Dropout(0.5),
+            #nn.Dropout(0.5),
             nn.Linear(H, D_out)
         )
 
@@ -230,7 +216,7 @@ class BertClassifier(nn.Module):
         if freeze_bert:
             for param in self.bert.parameters():
                 param.requires_grad = False
-
+        
     def forward(self, input_ids, attention_mask):
         """
         Feed input to BERT and the classifier to compute logits.
@@ -244,7 +230,7 @@ class BertClassifier(nn.Module):
         # Feed input to BERT
         outputs = self.bert(input_ids=input_ids,
                             attention_mask=attention_mask)
-
+        
         # Extract the last hidden state of the token `[CLS]` for classification task
         last_hidden_state_cls = outputs[0][:, 0, :]
 
@@ -252,7 +238,6 @@ class BertClassifier(nn.Module):
         logits = self.classifier(last_hidden_state_cls)
 
         return logits
-
 
 ##OPTIMIZER
 
@@ -267,9 +252,9 @@ def initialize_model(epochs=4):
 
     # Create the optimizer
     optimizer = AdamW(bert_classifier.parameters(),
-                      lr=2e-5,  # Default learning rate
-                      eps=1e-8,  # Default epsilon value
-                      betas=(0.9, 0.999)
+                      lr=3e-5,    # Default learning rate
+                      eps=1e-6,    # Default epsilon value
+                      betas=(0.9,0.98)
                       )
 
     # Total number of training steps
@@ -277,15 +262,13 @@ def initialize_model(epochs=4):
 
     # Set up the learning rate scheduler
     scheduler = get_linear_schedule_with_warmup(optimizer,
-                                                num_warmup_steps=0,  # Default value
+                                                num_warmup_steps=0, # Default value
                                                 num_training_steps=total_steps)
     return bert_classifier, optimizer, scheduler
-
 
 ##TRAINING LOOP
 # Specify loss function
 loss_fn = nn.CrossEntropyLoss()
-
 
 def set_seed(seed_value=42):
     """Set seed for reproducibility.
@@ -294,7 +277,6 @@ def set_seed(seed_value=42):
     np.random.seed(seed_value)
     torch.manual_seed(seed_value)
     torch.cuda.manual_seed_all(seed_value)
-
 
 def train(model, train_dataloader, val_dataloader=None, epochs=4, evaluation=False):
     """Train the BertClassifier model.
@@ -307,7 +289,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=4, evaluation=Fal
         # =======================================
         # Print the header of the result table
         print(f"{'Epoch':^7} | {'Batch':^7} | {'Train Loss':^12} | {'Val Loss':^10} | {'Val Acc':^9} | {'Elapsed':^9}")
-        print("-" * 70)
+        print("-"*70)
 
         # Measure the elapsed time of each epoch
         t0_epoch, t0_batch = time.time(), time.time()
@@ -320,7 +302,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=4, evaluation=Fal
 
         # For each batch of training data...
         for step, batch in enumerate(train_dataloader):
-            batch_counts += 1
+            batch_counts +=1
             # Load batch to GPU
             b_input_ids, b_attn_mask, b_labels = tuple(t.to(device) for t in batch)
 
@@ -351,8 +333,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=4, evaluation=Fal
                 time_elapsed = time.time() - t0_batch
 
                 # Print training results
-                print(
-                    f"{epoch_i + 1:^7} | {step:^7} | {batch_loss / batch_counts:^12.6f} | {'-':^10} | {'-':^9} | {time_elapsed:^9.2f}")
+                print(f"{epoch_i + 1:^7} | {step:^7} | {batch_loss / batch_counts:^12.6f} | {'-':^10} | {'-':^9} | {time_elapsed:^9.2f}")
 
                 # Reset batch tracking variables
                 batch_loss, batch_counts = 0, 0
@@ -361,7 +342,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=4, evaluation=Fal
         # Calculate the average loss over the entire training data
         avg_train_loss = total_loss / len(train_dataloader)
 
-        print("-" * 70)
+        print("-"*70)
         # =======================================
         #               Evaluation
         # =======================================
@@ -373,11 +354,10 @@ def train(model, train_dataloader, val_dataloader=None, epochs=4, evaluation=Fal
             time_elapsed = time.time() - t0_epoch
 
             evaluate(model, val_dataloader, avg_train_loss, time_elapsed, epoch_i)
-
+            
         print("\n")
-
+    
     print("Training complete!")
-
 
 ##EVALUATION
 def evaluate(model, val_dataloader, avg_train_loss, time_elapsed, epoch_i):
@@ -422,16 +402,15 @@ def evaluate(model, val_dataloader, avg_train_loss, time_elapsed, epoch_i):
     val_loss = np.mean(val_loss)
     val_accuracy = np.mean(val_accuracy)
 
-    print(
-        f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {val_loss:^10.6f} | {val_accuracy:^9.2f} | {time_elapsed:^9.2f}")
-    print("-" * 70)
+    print(f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {val_loss:^10.6f} | {val_accuracy:^9.2f} | {time_elapsed:^9.2f}")
+    print("-"*70)
 
     print('Classification Report:')
-    print(classification_report(y_true, y_pred, labels=[1, 0], digits=4))
-
-    cm = confusion_matrix(y_true, y_pred, labels=[1, 0])
-    ax = plt.subplot()
-    sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt="d")
+    print(classification_report(y_true, y_pred, labels=[1,0], digits=4))
+    
+    cm = confusion_matrix(y_true, y_pred, labels=[1,0])
+    ax= plt.subplot()
+    sns.heatmap(cm, annot=True, ax = ax, cmap='Blues', fmt="d")
 
     ax.set_title('Confusion Matrix')
 
@@ -442,11 +421,10 @@ def evaluate(model, val_dataloader, avg_train_loss, time_elapsed, epoch_i):
     ax.yaxis.set_ticklabels(['FAKE', 'REAL'])
     plt.show()
 
-
-# Actual training
-set_seed(42)  # Set seed for reproducibility
-bert_classifier, optimizer, scheduler = initialize_model(epochs=3)
-train(bert_classifier, train_dataloader, val_dataloader, epochs=3, evaluation=True)
+#Actual training
+set_seed(42)    # Set seed for reproducibility
+bert_classifier, optimizer, scheduler = initialize_model(epochs=4)
+train(bert_classifier, train_dataloader, val_dataloader, epochs=4, evaluation=True)
 
 
 ##EVALUATION on validation set
@@ -480,7 +458,7 @@ def bert_predict(model, test_dataloader):
     return probs
 
 
-# Evaluation on validation set
+#Evaluation on validation set
 def evaluate_roc(probs, y_true):
     """
     - Print AUC and accuracy on the test set
@@ -492,17 +470,17 @@ def evaluate_roc(probs, y_true):
     fpr, tpr, threshold = roc_curve(y_true, preds)
     roc_auc = auc(fpr, tpr)
     print(f'AUC: {roc_auc:.4f}')
-
+       
     # Get accuracy over the test set
     y_pred = np.where(preds >= 0.5, 1, 0)
     accuracy = accuracy_score(y_true, y_pred)
-    print(f'Accuracy: {accuracy * 100:.2f}%')
-
+    print(f'Accuracy: {accuracy*100:.2f}%')
+    
     # Plot ROC AUC
     plt.title('Receiver Operating Characteristic')
-    plt.plot(fpr, tpr, 'b', label='AUC = %0.2f' % roc_auc)
-    plt.legend(loc='lower right')
-    plt.plot([0, 1], [0, 1], 'r--')
+    plt.plot(fpr, tpr, 'b', label = 'AUC = %0.2f' % roc_auc)
+    plt.legend(loc = 'lower right')
+    plt.plot([0, 1], [0, 1],'r--')
     plt.xlim([0, 1])
     plt.ylim([0, 1])
     plt.ylabel('True Positive Rate')
@@ -516,7 +494,8 @@ probs = bert_predict(bert_classifier, val_dataloader)
 # Evaluate the Bert classifier
 evaluate_roc(probs, y_val)
 
-# TRAIN THE MODEL WITH THE WHOLE DATASET
+
+#TRAIN THE MODEL WITH THE WHOLE DATASET
 # Concatenate the train set and the validation set
 full_train_data = torch.utils.data.ConcatDataset([train_data, val_data])
 full_train_sampler = RandomSampler(full_train_data)
@@ -526,34 +505,3 @@ full_train_dataloader = DataLoader(full_train_data, sampler=full_train_sampler, 
 set_seed(42)
 bert_classifier, optimizer, scheduler = initialize_model(epochs=2)
 train(bert_classifier, full_train_dataloader, epochs=2)
-
-# Predictions on test set
-# I have to change this to just predict the english part of the test dataset,
-# while writing the results in a file formated for submission.
-"""test_data.sample(5)
-
-#We also apply the preprocessing to the test set.
-
-
-# Run `preprocessing_for_bert` on the test set
-print('Tokenizing data...')
-test_inputs, test_masks = preprocessing_for_bert(test_data.tweet)
-
-# Create the DataLoader for our test set
-test_dataset = TensorDataset(test_inputs, test_masks)
-test_sampler = SequentialSampler(test_dataset)
-test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=32)
-
-# Predictions
-# Compute predicted probabilities on the test set
-probs = bert_predict(bert_classifier, test_dataloader)
-
-# Get predictions from the probabilities
-threshold = 0.9
-preds = np.where(probs[:, 1] > threshold, 1, 0)
-
-# Number of tweets predicted non-negative
-print("Number of tweets predicted non-negative: ", preds.sum())
-
-output = test_data[preds==1]
-list(output.sample(20).tweet) """
