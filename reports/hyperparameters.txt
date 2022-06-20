@@ -1,0 +1,4 @@
+Now i will develop a script that can execute each bert, and try to figure out the best hyperparameters for each.
+This script will receive a list for each parameter, and it will execute the bert with different parameters each time.
+It will store the hyperparameters that made bert perform the best.
+
