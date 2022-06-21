@@ -2,3 +2,18 @@ Now i will develop a script that can execute each bert, and try to figure out th
 This script will receive a list for each parameter, and it will execute the bert with different parameters each time.
 It will store the hyperparameters that made bert perform the best.
 
+I nested the loop that changes learning rates within the one that changes the number of epochs, as those two are the
+main hyperparameters. THis will take way more time than before, but I think it is a better solution than choosing each
+hyperparameter individually. That could lead to missing out crucial combinations depending on the parameter that
+chosen to be evaluated first.
+
+There are also some relevant papers about different hyperparameter tuning lagorithms. this one is called
+hyperband
+https://arxiv.org/pdf/1603.06560.pdf
+
+These algorithms seem to be overkill for BERT, the recommended fine tuning algorithms are the simpler ones, like a
+simple grid search over just a few different hyperparameters with a very limited search space
+
+https://medium.com/distributed-computing-with-ray/hyperparameter-optimization-for-transformers-a-guide-c4e32c6c989b
+https://colab.research.google.com/drive/1tQgAKgcKQzheoh503OzhS4N9NtfFgmjF?usp=sharing#scrollTo=hcfbQ8FmuIM9
+https://pytorch.org/tutorials/beginner/hyperparameter_tuning_tutorial.html

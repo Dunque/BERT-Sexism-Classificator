@@ -26,7 +26,7 @@ from torch.optim import AdamW
 from transformers import get_linear_schedule_with_warmup
 
 
-def main(epochs=4, learning_rate=5e-5, batch_size=32, epsilon=1e-8, betas=(0.9,0.999),
+def main(epochs=4, learning_rate=5e-5, epsilon=1e-8, betas=(0.9,0.999), batch_size=32,
          train_whole=False, save_model=False, show_plots=False):
 
     train_whole = train_whole
@@ -384,13 +384,6 @@ def main(epochs=4, learning_rate=5e-5, batch_size=32, epsilon=1e-8, betas=(0.9,0
             bl.plot(range(1, epochs+1), loss_list)
             plt.show()
 
-            # bl = plt.subplot()
-            # bl.set_title('Training Accuracy')
-            # bl.set_xlabel('accuracy')
-            # bl.set_ylabel('batch')
-            # bl.plot(val_accuracy, range(1, epochs))
-            # plt.show()
-
         print("Training complete!")
 
         return global_mean_loss, global_mean_accuracy
@@ -550,7 +543,7 @@ def main(epochs=4, learning_rate=5e-5, batch_size=32, epsilon=1e-8, betas=(0.9,0
 
 
 if __name__ == "__main__":
-    main(32, 5e-5, 1e-08, (0.9, 0.999), 2, False, False, False)
+    main(2, 5e-5, 1e-08, (0.9, 0.999), 32, False, False, False)
 
 # Predictions on test set
 # I have to change this to just predict the english part of the test dataset,

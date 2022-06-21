@@ -1,7 +1,7 @@
 import binEngBERT
 
 epochs = [2, 3, 4, 5, 6, 7, 8]
-learning_rates = [1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 6e-5]
+learning_rates = [1e-5, 2e-5, 3e-5, 4e-5, 5e-5]
 batch_sizes = [16, 32, 48, 64, 80, 96]
 epsilons = [1e-8, 1e-6]
 betas = [(0.9, 0.999), (0.9, 0.98)]
@@ -21,6 +21,7 @@ global_acc = 0
 
 bmp = BestModelParams()
 
+# Nested epochs and learning rates, so this will take way more time than the other checks
 for epoch in epochs:
     loss, acc = binEngBERT.main(epoch)
 
@@ -29,13 +30,13 @@ for epoch in epochs:
         bmp.e = epoch
         print("Saved!")
 
-for learning_rate in learning_rates:
-    loss, acc = binEngBERT.main(bmp.e, learning_rate)
+    for learning_rate in learning_rates:
+        loss, acc = binEngBERT.main(bmp.e, learning_rate)
 
-    if acc >= global_acc:
-        global_acc = acc
-        bmp.lr = learning_rate
-        print("Saved!")
+        if acc >= global_acc:
+            global_acc = acc
+            bmp.lr = learning_rate
+            print("Saved!")
 
 for batch_size in batch_sizes:
     loss, acc = binEngBERT.main(bmp.e, bmp.lr, batch_size)
