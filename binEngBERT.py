@@ -550,7 +550,7 @@ def main(epochs=4, learning_rate=5e-5, batch_size=32, epsilon=1e-8, betas=(0.9,0
 
 
 if __name__ == "__main__":
-    main(32, 5e-5, 1e-8, (0.9, 0.999), 4, False, False, False)
+    main(32, 5e-5, 1e-08, (0.9, 0.999), 2, False, False, False)
 
 # Predictions on test set
 # I have to change this to just predict the english part of the test dataset,

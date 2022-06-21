@@ -24,7 +24,7 @@ bmp = BestModelParams()
 for epoch in epochs:
     loss, acc = binEngBERT.main(epoch)
 
-    if acc > global_acc:
+    if acc >= global_acc:
         global_acc = acc
         bmp.e = epoch
         print("Saved!")
@@ -32,15 +32,15 @@ for epoch in epochs:
 for learning_rate in learning_rates:
     loss, acc = binEngBERT.main(bmp.e, learning_rate)
 
-    if acc > global_acc:
+    if acc >= global_acc:
         global_acc = acc
         bmp.lr = learning_rate
         print("Saved!")
 
 for batch_size in batch_sizes:
-    loss, acc = binEngBERT.main(bmp.e, bmp.lr, batch_sizes)
+    loss, acc = binEngBERT.main(bmp.e, bmp.lr, batch_size)
 
-    if acc > global_acc:
+    if acc >= global_acc:
         global_acc = acc
         bmp.bs = batch_size
         print("Saved!")
@@ -48,7 +48,7 @@ for batch_size in batch_sizes:
 for epsilon in epsilons:
     loss, acc = binEngBERT.main(bmp.e, bmp.lr, bmp.bs, epsilon)
 
-    if acc > global_acc:
+    if acc >= global_acc:
         global_acc = acc
         bmp.eps = epsilon
         print("Saved!")
@@ -56,7 +56,7 @@ for epsilon in epsilons:
 for beta in betas:
     loss, acc = binEngBERT.main(bmp.e, bmp.lr, bmp.bs, bmp.eps, beta)
 
-    if acc > global_acc:
+    if acc >= global_acc:
         global_acc = acc
         bmp.beta = beta
         print("Saved!")
