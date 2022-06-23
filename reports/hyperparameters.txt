@@ -17,3 +17,6 @@ simple grid search over just a few different hyperparameters with a very limited
 https://medium.com/distributed-computing-with-ray/hyperparameter-optimization-for-transformers-a-guide-c4e32c6c989b
 https://colab.research.google.com/drive/1tQgAKgcKQzheoh503OzhS4N9NtfFgmjF?usp=sharing#scrollTo=hcfbQ8FmuIM9
 https://pytorch.org/tutorials/beginner/hyperparameter_tuning_tutorial.html
+
+Ive decided to use the ray tune library to tune the hyperparameters. It works with a more complex algorithm, but the
+results are increasing a bit form the rudimentary method that I used.

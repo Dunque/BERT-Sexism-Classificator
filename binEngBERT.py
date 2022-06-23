@@ -31,7 +31,7 @@ from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
 
 
-config = {
+configuration = {
     "epochs": random.choice([2, 3, 4, 5, 6]),
     "epsilon": random.choice([1e-8, 1e-6]),
     "learning_rate": random.choice([1e-5, 2e-5, 3e-5, 4e-5, 5e-5]),
@@ -41,8 +41,8 @@ config = {
 
 
 # Function that returns two dataframes, for training and test
-def load_data(translated_data='data/EXIST2021_translatedTraining.csv',
-              translated_test_data='data/EXIST2021_translatedTest.csv'):
+def load_data(translated_data='/home/roi_santos_rios/Desktop/BERT-Sexism-Classificator/data/EXIST2021_translatedTraining.csv',
+              translated_test_data='/home/roi_santos_rios/Desktop/BERT-Sexism-Classificator/data/EXIST2021_translatedTest.csv'):
     # Load data and set labels
     data = pd.read_csv(translated_data)
 
@@ -199,8 +199,21 @@ class BertClassifier(nn.Module):
 
 
 # TRAINING LOOP
-def train_model(config, data, test_data, device, show_plots, evaluation=False, load_checkpoint=False):
+def train_model(config, checkpoint_dir=None):
     """Train the BertClassifier model."""
+
+    # Try to get the gpu to work instead of the cpu
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        print(f'There are {torch.cuda.device_count()} GPU(s) available.')
+        print('Device name:', torch.cuda.get_device_name(0))
+    else:
+        print('No GPU available, using the CPU instead.')
+        device = torch.device("cpu")
+
+    # Load data
+    data, test_data = load_data()
+
     # Spitting the date into train_model and validation
     x = data.tweet.values
     y = data.label.values
@@ -275,8 +288,7 @@ def train_model(config, data, test_data, device, show_plots, evaluation=False, l
                                                 num_warmup_steps=0,  # Default value
                                                 num_training_steps=total_steps)
 
-    if load_checkpoint:
-
+    if checkpoint_dir:
         model_state, optimizer_state = torch.load(
             os.path.join("models/binEngBert/checkpoints", "checkpoint"))
         model.load_state_dict(model_state)
@@ -403,23 +415,31 @@ def train_model(config, data, test_data, device, show_plots, evaluation=False, l
         # Compute the average accuracy and loss over the validation set.
         mean_loss = np.mean(val_loss)
         mean_accuracy = np.mean(val_accuracy)
+
+        print(
+            f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {mean_loss:^10.6f} | {mean_accuracy:^9.2f} | {time_elapsed:^9.2f}")
+        print("-" * 70)
+
+        print('Classification Report:')
+        print(classification_report(y_true, y_pred, labels=[1, 0], digits=4))
+
         print("\n")
 
         # if len(loss_list) >= 2:
         #     if loss_list[-2] < loss_list[-1]:
         #         print("Stopping training as loss started to grow")
 
-    if show_plots:
-        bl = plt.subplot()
-        bl.set_title('Batch loss')
-        bl.set_xlabel('batch')
-        bl.set_ylabel('loss')
-        bl.plot(range(1, config["epochs"]+1), loss_list)
-        plt.show()
+    # if show_plots:
+    #     bl = plt.subplot()
+    #     bl.set_title('Batch loss')
+    #     bl.set_xlabel('batch')
+    #     bl.set_ylabel('loss')
+    #     bl.plot(range(1, config["epochs"]+1), loss_list)
+    #     plt.show()
 
     print("Training complete!")
 
-    return model
+    #return model
 
 
 # EVALUATION
@@ -557,29 +577,18 @@ def main(train_whole=False, save_model=False, show_plots=False):
     save_model = save_model
     show_plots = show_plots
 
-    # Try to get the gpu to work instead of the cpu
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-        print(f'There are {torch.cuda.device_count()} GPU(s) available.')
-        print('Device name:', torch.cuda.get_device_name(0))
-
-    else:
-        print('No GPU available, using the CPU instead.')
-        device = torch.device("cpu")
-
-    data, test_data = load_data()
-
     # TRAINING
     # Actual training
     set_seed(42)  # Set seed for reproducibility
-    #model = train_model(config, data, test_data, device, show_plots, evaluation=True)
+    # model = train_model(config, data, test_data, device, show_plots, evaluation=True)
 
     reporter = CLIReporter(
         # parameter_columns=["l1", "l2", "lr", "batch_size"],
         metric_columns=["loss", "accuracy", "training_iteration"])
 
-    result = tune.run(train_model(config, data, test_data, device, show_plots, evaluation=True),
-                      config=config,
+    result = tune.run(train_model,
+                      resources_per_trial={"gpu": 1},
+                      config=configuration,
                       num_samples=10,
                       progress_reporter=reporter)
 
