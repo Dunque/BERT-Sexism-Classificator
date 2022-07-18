@@ -20,3 +20,8 @@ https://pytorch.org/tutorials/beginner/hyperparameter_tuning_tutorial.html
 
 Ive decided to use the ray tune library to tune the hyperparameters. It works with a more complex algorithm, but the
 results are increasing a bit form the rudimentary method that I used.
+
+ray tune schedulers
+https://docs.ray.io/en/latest/tune/api_docs/schedulers.html
+massively parallel hyperparameter tuning paper
+https://openreview.net/pdf?id=S1Y7OOlRZ
