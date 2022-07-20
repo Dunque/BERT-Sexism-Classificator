@@ -29,13 +29,14 @@ from transformers import get_linear_schedule_with_warmup
 from ray import tune
 from ray.tune import CLIReporter
 
+absolutePath = "/home/roi_santos_rios/Desktop/BERT-Sexism-Classificator/"
+saveImagePath = absolutePath + "models/binEngBert/images/"
 
-saveImagePath = "/home/roi_santos_rios/Desktop/BERT-Sexism-Classificator/models/binEngBert/images/"
 
 # Function that returns two dataframes, for training and test
 # Paths must be absolute in order for the threads to work
-def load_data(translated_data='/home/roi_santos_rios/Desktop/BERT-Sexism-Classificator/data/EXIST2021_translatedTraining.csv',
-              translated_test_data='/home/roi_santos_rios/Desktop/BERT-Sexism-Classificator/data/EXIST2021_translatedTest.csv'):
+def load_data(translated_data=absolutePath + 'data/EXIST2021_translatedTraining.csv',
+              translated_test_data=absolutePath + 'data/EXIST2021_translatedTest.csv'):
     # Load data and set labels
     data = pd.read_csv(translated_data)
 
@@ -192,7 +193,10 @@ class BertClassifier(nn.Module):
 
 
 # TRAINING LOOP
-def train_model(config, checkpoint_dir=None):
+# This function is designed ot fit in the ray tune run function, it has the training and evaluation
+# parts integrated, as well as the dataloader. This has to be done this way so it can be executed on
+# different threads
+def train_model_hyperparams(config, checkpoint_dir=(absolutePath+"models/binEngBert/checkpoints")):
     """Train the BertClassifier model."""
 
     # Try to get the gpu to work instead of the cpu
@@ -204,6 +208,154 @@ def train_model(config, checkpoint_dir=None):
         print('No GPU available, using the CPU instead.')
         device = torch.device("cpu")
 
+    # Load data
+    data, test_data = load_data()
+
+    # Spitting the date into train_model and validation
+    x = data.tweet.values
+    y = data.label.values
+
+    x_train, x_val, y_train, y_val = train_test_split(x, y, test_size=0.1, random_state=2020)
+
+    # TOKENIZE
+    # Load the BERT tokenizer
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+
+    # LENGTH
+    max_len = 64
+
+    # Run function `preprocessing_for_bert` on the train_model set and the validation set
+    train_inputs, train_masks = preprocessing_for_bert(x_train, tokenizer, max_len)
+    val_inputs, val_masks = preprocessing_for_bert(x_val, tokenizer, max_len)
+
+    # DATALOADER
+    # Convert other data types to torch.Tensor
+    train_labels = torch.tensor(y_train)
+    val_labels = torch.tensor(y_val)
+
+    # Create the DataLoader for our training set
+    train_data = TensorDataset(train_inputs, train_masks, train_labels)
+    train_sampler = RandomSampler(train_data)
+    train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=config["batch_size"])
+
+    # Create the DataLoader for our validation set
+    val_data = TensorDataset(val_inputs, val_masks, val_labels)
+    val_sampler = SequentialSampler(val_data)
+    val_dataloader = DataLoader(val_data, sampler=val_sampler, batch_size=config["batch_size"])
+
+    # BERT INITIALIZATION
+    # Instantiate Bert Classifier
+    model = BertClassifier(freeze_bert=False)
+
+    # Tell PyTorch to run the model on GPU
+    model.to(device)
+
+    # OPTIMIZER
+    # Create the optimizer
+    optimizer = AdamW(model.parameters(),
+                      lr=config["learning_rate"],  # Default learning rate
+                      eps=config["epsilon"],  # Default epsilon value
+                      betas=config["betas"]
+                      )
+
+    # Total number of training steps
+    total_steps = len(train_dataloader) * config["epochs"]
+
+    # Set up the learning rate scheduler
+    scheduler = get_linear_schedule_with_warmup(optimizer,
+                                                num_warmup_steps=0,  # Default value
+                                                num_training_steps=total_steps)
+
+    if checkpoint_dir:
+        model_state, optimizer_state = torch.load(
+            os.path.join(checkpoint_dir, "checkpoint"))
+        model.load_state_dict(model_state)
+        optimizer.load_state_dict(optimizer_state)
+
+    # Specify loss function
+    loss_fn = nn.CrossEntropyLoss()
+
+    # Start training loop
+    print("Start training...\n")
+    for epoch_i in range(config["epochs"]):
+        # =======================================
+        #               Training
+        # =======================================
+
+        # Put the model into the training mode
+        model.train()
+
+        # For each batch of training data...
+        for step, batch in enumerate(train_dataloader):
+            # Load batch to GPU
+            b_input_ids, b_attn_mask, b_labels = tuple(t.to(device) for t in batch)
+
+            # Zero out any previously calculated gradients
+            model.zero_grad()
+
+            # Perform a forward pass. This will return logits.
+            logits = model(b_input_ids, b_attn_mask)
+
+            # Compute loss and accumulate the loss values
+            loss = loss_fn(logits, b_labels)
+
+            # Perform a backward pass to calculate gradients
+            loss.backward()
+
+            # Clip the norm of the gradients to 1.0 to prevent "exploding gradients"
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
+            # Update parameters and the learning rate
+            optimizer.step()
+            scheduler.step()
+
+        # =======================================
+        #               Evaluation
+        # =======================================
+        model.eval()
+
+        # Tracking variables
+        val_accuracy = []
+        val_loss = []
+        val_step = 0
+
+        # Specify loss function
+        loss_fn = nn.CrossEntropyLoss()
+
+        # For each batch in our validation set...
+        for batch in val_dataloader:
+            # Load batch to GPU
+            b_input_ids, b_attn_mask, b_labels = tuple(t.to(device) for t in batch)
+
+            # Compute logits
+            with torch.no_grad():
+                logits = model(b_input_ids, b_attn_mask)
+
+            # Compute loss
+            loss = loss_fn(logits, b_labels)
+            val_loss.append(loss.item())
+
+            # Get the predictions
+            preds = torch.argmax(logits, dim=1).flatten()
+
+            # Calculate the accuracy rate
+            accuracy = (preds == b_labels).cpu().numpy().mean() * 100
+            val_accuracy.append(accuracy)
+
+            val_step += 1
+
+        with tune.checkpoint_dir(epoch_i) as checkpoint_dir:
+            path = os.path.join(checkpoint_dir, "checkpoint")
+            torch.save((model.state_dict(), optimizer.state_dict()), path)
+
+        # Compute the average accuracy and loss over the validation set.
+        mean_loss = np.mean(val_loss)
+        mean_accuracy = np.mean(val_accuracy)
+
+        tune.report(loss=(mean_loss / val_step), accuracy=mean_accuracy)
+
+
+def data_loaders(config):
     # Load data
     data, test_data = load_data()
 
@@ -258,6 +410,21 @@ def train_model(config, checkpoint_dir=None):
     val_sampler = SequentialSampler(val_data)
     val_dataloader = DataLoader(val_data, sampler=val_sampler, batch_size=config["batch_size"])
 
+    return train_dataloader, val_dataloader, y_val
+
+
+def train_model(config, train_dataloader, val_dataloader):
+    """Train the BertClassifier model."""
+
+    # Try to get the gpu to work instead of the cpu
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        print(f'There are {torch.cuda.device_count()} GPU(s) available.')
+        print('Device name:', torch.cuda.get_device_name(0))
+    else:
+        print('No GPU available, using the CPU instead.')
+        device = torch.device("cpu")
+
     # BERT INITIALIZATION
     # Instantiate Bert Classifier
     model = BertClassifier(freeze_bert=False)
@@ -280,12 +447,6 @@ def train_model(config, checkpoint_dir=None):
     scheduler = get_linear_schedule_with_warmup(optimizer,
                                                 num_warmup_steps=0,  # Default value
                                                 num_training_steps=total_steps)
-
-    if checkpoint_dir:
-        model_state, optimizer_state = torch.load(
-            os.path.join("models/binEngBert/checkpoints", "checkpoint"))
-        model.load_state_dict(model_state)
-        optimizer.load_state_dict(optimizer_state)
 
     # Specify loss function
     loss_fn = nn.CrossEntropyLoss()
@@ -361,75 +522,15 @@ def train_model(config, checkpoint_dir=None):
         # =======================================
         #               Evaluation
         # =======================================
-        model.eval()
+        # After the completion of each training epoch, measure the model's performance
+        # on our validation set.
 
-        # Tracking variables
-        val_accuracy = []
-        val_loss = []
-        val_step = 0
+        # Print performance over the entire training data
+        time_elapsed = time.time() - t0_epoch
 
-        y_pred = []
-        y_true = []
-
-        # Specify loss function
-        loss_fn = nn.CrossEntropyLoss()
-
-        # For each batch in our validation set...
-        for batch in val_dataloader:
-            # Load batch to GPU
-            b_input_ids, b_attn_mask, b_labels = tuple(t.to(device) for t in batch)
-
-            # Compute logits
-            with torch.no_grad():
-                logits = model(b_input_ids, b_attn_mask)
-
-            # Compute loss
-            loss = loss_fn(logits, b_labels)
-            val_loss.append(loss.item())
-
-            # Get the predictions
-            preds = torch.argmax(logits, dim=1).flatten()
-
-            # Calculate the accuracy rate
-            accuracy = (preds == b_labels).cpu().numpy().mean() * 100
-            val_accuracy.append(accuracy)
-
-            y_pred.extend(torch.argmax(logits, 1).tolist())
-            y_true.extend(b_labels.tolist())
-
-            val_step += 1
-
-        with tune.checkpoint_dir(epoch_i) as checkpoint_dir:
-            path = os.path.join(checkpoint_dir, "checkpoint")
-            torch.save((model.state_dict(), optimizer.state_dict()), path)
-
-        tune.report(loss=(loss / val_step), accuracy=accuracy)
-
-        # Compute the average accuracy and loss over the validation set.
-        mean_loss = np.mean(val_loss)
-        mean_accuracy = np.mean(val_accuracy)
-
-        print(
-            f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {mean_loss:^10.6f} | {mean_accuracy:^9.2f} | {time_elapsed:^9.2f}")
-        print("-" * 70)
-
-        print('Classification Report:')
-        print(classification_report(y_true, y_pred, labels=[1, 0], digits=4))
+        evaluate(model, device, val_dataloader, avg_train_loss, time_elapsed, epoch_i)
 
         print("\n")
-
-        cm = confusion_matrix(y_true, y_pred, labels=[1, 0])
-        ax = plt.subplot()
-        sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt="d")
-
-        ax.set_title('Confusion Matrix')
-
-        ax.set_xlabel('Predicted Labels')
-        ax.set_ylabel('True Labels')
-
-        ax.xaxis.set_ticklabels(['FAKE', 'REAL'])
-        ax.yaxis.set_ticklabels(['FAKE', 'REAL'])
-        plt.savefig(saveImagePath+"cm {}.png".format(epoch_i))
 
     bl = plt.subplot()
     bl.set_title('Batch loss')
@@ -440,50 +541,126 @@ def train_model(config, checkpoint_dir=None):
 
     print("Training complete!")
 
+    return model
 
-# EVALUATION on test set
-def evaluate_roc(model, config, device):
+
+# EVALUATION
+def evaluate(model, device, val_dataloader, avg_train_loss, time_elapsed, epoch_i):
+    """After the completion of each training epoch, measure the model's performance
+    on our validation set.
+    """
+    # Put the model into the evaluation mode. The dropout layers are disabled during
+    # the test time.
+    model.eval()
+
+    # Tracking variables
+    val_accuracy = []
+    val_loss = []
+    val_step = 0
+
+    y_pred = []
+    y_true = []
+
+    # Specify loss function
+    loss_fn = nn.CrossEntropyLoss()
+
+    # For each batch in our validation set...
+    for batch in val_dataloader:
+        # Load batch to GPU
+        b_input_ids, b_attn_mask, b_labels = tuple(t.to(device) for t in batch)
+
+        # Compute logits
+        with torch.no_grad():
+            logits = model(b_input_ids, b_attn_mask)
+
+        # Compute loss
+        loss = loss_fn(logits, b_labels)
+        val_loss.append(loss.item())
+
+        # Get the predictions
+        preds = torch.argmax(logits, dim=1).flatten()
+
+        # Calculate the accuracy rate
+        accuracy = (preds == b_labels).cpu().numpy().mean() * 100
+        val_accuracy.append(accuracy)
+
+        y_pred.extend(torch.argmax(logits, 1).tolist())
+        y_true.extend(b_labels.tolist())
+
+        val_step += 1
+
+    # Compute the average accuracy and loss over the validation set.
+    mean_loss = np.mean(val_loss)
+    mean_accuracy = np.mean(val_accuracy)
+
+    print(
+        f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {mean_loss:^10.6f} | {mean_accuracy:^9.2f} | {time_elapsed:^9.2f}")
+    print("-" * 70)
+
+    print('Classification Report:')
+    print(classification_report(y_true, y_pred, labels=[1, 0], target_names=["sexist","non-sexist"], digits=4))
+    clas_rep_file = open((absolutePath+"models/binEngBert/classReport.txt"), "w")
+    clas_rep_file.write(classification_report(y_true, y_pred, labels=[1, 0],  target_names=["sexist","non-sexist"], digits=4))
+
+    print("\n")
+
+    cm = confusion_matrix(y_true, y_pred, labels=[1, 0])
+    ax = plt.subplot()
+    sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt="d")
+
+    ax.set_title('Confusion Matrix')
+
+    ax.set_xlabel('Predicted Labels')
+    ax.set_ylabel('True Labels')
+
+    ax.xaxis.set_ticklabels(["sexist", "non-sexist"])
+    ax.yaxis.set_ticklabels(["sexist", "non-sexist"])
+    plt.savefig(saveImagePath+"cm {}.png".format(epoch_i))
+
+
+# Evaluation on validation set
+def evaluate_roc(probs, y_true):
+    """
+    - Print AUC and accuracy on the test set
+    - Plot ROC
+    @params    probs (np.array): an array of predicted probabilities with shape (len(y_true), 2)
+    @params    y_true (np.array): an array of the true values with shape (len(y_true),)
+    """
+    preds = probs[:, 1]
+    fpr, tpr, threshold = roc_curve(y_true, preds)
+    roc_auc = auc(fpr, tpr)
+    print(f'AUC: {roc_auc:.4f}')
+
+    # Get accuracy over the test set
+    y_pred = np.where(preds >= 0.5, 1, 0)
+    accuracy = accuracy_score(y_true, y_pred)
+    print(f'Accuracy: {accuracy * 100:.2f}%')
+
+    # Plot ROC AUC
+    plt.title('Receiver Operating Characteristic')
+    plt.plot(fpr, tpr, 'b', label='AUC = %0.2f' % roc_auc)
+    plt.legend(loc='lower right')
+    plt.plot([0, 1], [0, 1], 'r--')
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.ylabel('True Positive Rate')
+    plt.xlabel('False Positive Rate')
+    plt.savefig(saveImagePath+"rocauc.png")
+
+
+# Function to use in order to test the model with any dataloader
+def bert_predict(model, test_dataloader):
     """Perform a forward pass on the trained BERT model to predict probabilities
     on the test set.
     """
-    # Load data
-    data, test_data = load_data()
-
-    # Spitting the date into train_model and validation
-    x = data.tweet.values
-    y = data.label.values
-
-    x_train, x_val, y_train, y_val = train_test_split(x, y, test_size=0.1, random_state=2020)
-
-    # TOKENIZE
-    # Load the BERT tokenizer
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
-
-    # LENGTH
-    # Concatenate train_model data and test data
-    all_tweets = np.concatenate([data.tweet.values, test_data.tweet.values])
-
-    # Encode our concatenated data
-    encoded_tweets = [tokenizer.encode(sent, add_special_tokens=True) for sent in all_tweets]
-
-    # Find the maximum length
-    max_len = max([len(sent) for sent in encoded_tweets])
-    print('Max length: ', max_len)
-    max_len = 64
-
-    # Run function `preprocessing_for_bert` on the train_model set and the validation set
-    val_inputs, val_masks = preprocessing_for_bert(x_val, tokenizer, max_len)
-
-    # Print sentence 0 and preprocessed sentence
-
-    # DATALOADER
-    # Convert other data types to torch.Tensor
-    val_labels = torch.tensor(y_val)
-
-    # Create the DataLoader for our validation set
-    val_data = TensorDataset(val_inputs, val_masks, val_labels)
-    val_sampler = SequentialSampler(val_data)
-    val_dataloader = DataLoader(val_data, sampler=val_sampler, batch_size=config["batch_size"])
+    # Try to get the gpu to work instead of the cpu
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        print(f'There are {torch.cuda.device_count()} GPU(s) available.')
+        print('Device name:', torch.cuda.get_device_name(0))
+    else:
+        print('No GPU available, using the CPU instead.')
+        device = torch.device("cpu")
 
     # Put the model into the evaluation mode. The dropout layers are disabled during
     # the test time.
@@ -492,7 +669,7 @@ def evaluate_roc(model, config, device):
     all_logits = []
 
     # For each batch in our test set...
-    for batch in val_dataloader:
+    for batch in test_dataloader:
         # Load batch to GPU
         b_input_ids, b_attn_mask, b_labels = tuple(t.to(device) for t in batch)
 
@@ -508,53 +685,35 @@ def evaluate_roc(model, config, device):
     # Apply softmax to calculate probabilities
     probs = F.softmax(all_logits, dim=1).cpu().numpy()
 
-    preds = probs[:, 1]
-    fpr, tpr, threshold = roc_curve(y_val, preds)
-    roc_auc = auc(fpr, tpr)
-    print(f'AUC: {roc_auc:.4f}')
-
-    # Get accuracy over the test set
-    y_pred = np.where(preds >= 0.5, 1, 0)
-    accuracy = accuracy_score(y_val, y_pred)
-    print(f'Accuracy: {accuracy * 100:.2f}%')
-
-    # Plot ROC AUC
-    plt.title('Receiver Operating Characteristic')
-    plt.plot(fpr, tpr, 'b', label='AUC = %0.2f' % roc_auc)
-    plt.legend(loc='lower right')
-    plt.plot([0, 1], [0, 1], 'r--')
-    plt.xlim([0, 1])
-    plt.ylim([0, 1])
-    plt.ylabel('True Positive Rate')
-    plt.xlabel('False Positive Rate')
-    plt.savefig(saveImagePath+"rocauc.png")
+    return probs
 
 
-def main():
+def main(save_model, train_whole):
 
     # TRAINING
     set_seed(42)  # Set seed for reproducibility
 
     configuration = {
-        "epochs": tune.choice([2, 3]),
+        "epochs": tune.choice([2, 3,4,5]),
         "epsilon": tune.choice([1e-8, 1e-6]),
         "learning_rate": tune.choice([1e-5, 2e-5, 3e-5, 4e-5, 5e-5]),
         "batch_size": tune.choice([16, 32, 64]),
         "betas": tune.choice([(0.9, 0.999), (0.9, 0.98)]),
-        "show_plots": False
     }
 
     reporter = CLIReporter(
         # parameter_columns=["l1", "l2", "lr", "batch_size"],
-        metric_columns=["loss", "accuracy", "training_iteration"])
+        metric_columns=["loss", "accuracy", "f1-score", "training_iteration"])
 
-    result = tune.run(train_model,
+    result = tune.run(train_model_hyperparams,
                       resources_per_trial={"gpu": 1},
                       config=configuration,
-                      num_samples=1,
+                      num_samples=10,
                       progress_reporter=reporter)
 
-    best_trial = result.get_best_trial("loss", "accuracy")
+    result.results_df.to_csv(absolutePath+"models/binEngBert/results_df.csv")
+
+    best_trial = result.get_best_trial(metric="accuracy", mode="max")
 
     print("Best trial config: {}".format(best_trial.config))
     print("Best trial final validation loss: {}".format(
@@ -562,29 +721,22 @@ def main():
     print("Best trial final validation accuracy: {}".format(
         best_trial.last_result["accuracy"]))
 
+    # Now we train again with the best hyperparameters, to gather data and produce
+    # some graphics ot evaluate the model
+    train_dataloader, val_dataloader, y_true = data_loaders(best_trial.config)
+
+    bert_classifier = train_model(best_trial.config, train_dataloader, val_dataloader)
+
+    # Compute predicted probabilities on the test set
+    probs = bert_predict(bert_classifier, val_dataloader)
+
+    # Evaluate the ROC of the classifier
+    evaluate_roc(probs, y_true)
+
     best_trained_model = BertClassifier(freeze_bert=False)
 
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-        print(f'There are {torch.cuda.device_count()} GPU(s) available.')
-        print('Device name:', torch.cuda.get_device_name(0))
-    else:
-        print('No GPU available, using the CPU instead.')
-        device = torch.device("cpu")
 
-    best_trained_model.to(device)
-
-    best_checkpoint_dir = best_trial.checkpoint.value
-    model_state, optimizer_state = torch.load(os.path.join(
-        best_checkpoint_dir, "checkpoint"))
-    best_trained_model.load_state_dict(model_state)
-
-    # Compute predicted probabilities on the validation set
-    # Evaluate the Bert classifier
-    evaluate_roc(best_trained_model, best_trial.config, device)
-
-    #
-    # # TRAIN THE MODEL WITH THE WHOLE DATASET
+    # TRAIN THE MODEL WITH THE WHOLE DATASET
     # if train_whole:
     #     # Concatenate the train_model set and the validation set
     #     full_train_data = torch.utils.data.ConcatDataset([train_data, val_data])
@@ -598,11 +750,11 @@ def main():
     #
     # if save_model:
     #     # Save the model
-    #     model.save("models/binEngBERT")
+    #     bert_classifier.save("models/binEngBERT")
 
 
 if __name__ == "__main__":
-    main()
+    main(save_model=False, train_whole=False)
 
 # Predictions on test set
 # I have to change this to just predict the english part of the test dataset,
