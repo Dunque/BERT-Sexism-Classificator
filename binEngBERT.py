@@ -30,13 +30,15 @@ from ray import tune
 from ray.tune import CLIReporter
 
 absolutePath = "/home/roi_santos_rios/Desktop/BERT-Sexism-Classificator/"
-saveImagePath = absolutePath + "models/binEngBert/images/"
+modelPath = absolutePath + "models/binEngBert/"
+translated_data_path = absolutePath + 'data/EXIST2021_translatedTraining.csv'
+translated_test_data_path = absolutePath + 'data/EXIST2021_translatedTest.csv'
 
 
 # Function that returns two dataframes, for training and test
 # Paths must be absolute in order for the threads to work
-def load_data(translated_data=absolutePath + 'data/EXIST2021_translatedTraining.csv',
-              translated_test_data=absolutePath + 'data/EXIST2021_translatedTest.csv'):
+def load_data(translated_data=translated_data_path,
+              translated_test_data=translated_test_data_path):
     # Load data and set labels
     data = pd.read_csv(translated_data)
 
@@ -196,7 +198,7 @@ class BertClassifier(nn.Module):
 # This function is designed ot fit in the ray tune run function, it has the training and evaluation
 # parts integrated, as well as the dataloader. This has to be done this way so it can be executed on
 # different threads
-def train_model_hyperparams(config, checkpoint_dir=(absolutePath+"models/binEngBert/checkpoints")):
+def train_model_hyperparams(config, checkpoint_dir=None):
     """Train the BertClassifier model."""
 
     # Try to get the gpu to work instead of the cpu
@@ -537,7 +539,7 @@ def train_model(config, train_dataloader, val_dataloader):
     bl.set_xlabel('batch')
     bl.set_ylabel('loss')
     bl.plot(range(1, config["epochs"]+1), loss_list)
-    plt.savefig(saveImagePath+"batchLoss.png")
+    plt.savefig(modelPath + "batchLoss.png")
 
     print("Training complete!")
 
@@ -599,7 +601,7 @@ def evaluate(model, device, val_dataloader, avg_train_loss, time_elapsed, epoch_
 
     print('Classification Report:')
     print(classification_report(y_true, y_pred, labels=[1, 0], target_names=["sexist","non-sexist"], digits=4))
-    clas_rep_file = open((absolutePath+"models/binEngBert/classReport.txt"), "w")
+    clas_rep_file = open((modelPath + "classReport.txt"), "w")
     clas_rep_file.write(classification_report(y_true, y_pred, labels=[1, 0],  target_names=["sexist","non-sexist"], digits=4))
 
     print("\n")
@@ -615,7 +617,7 @@ def evaluate(model, device, val_dataloader, avg_train_loss, time_elapsed, epoch_
 
     ax.xaxis.set_ticklabels(["sexist", "non-sexist"])
     ax.yaxis.set_ticklabels(["sexist", "non-sexist"])
-    plt.savefig(saveImagePath+"cm {}.png".format(epoch_i))
+    plt.savefig(modelPath + "cm {}.png".format(epoch_i))
 
 
 # Evaluation on validation set
@@ -645,7 +647,7 @@ def evaluate_roc(probs, y_true):
     plt.ylim([0, 1])
     plt.ylabel('True Positive Rate')
     plt.xlabel('False Positive Rate')
-    plt.savefig(saveImagePath+"rocauc.png")
+    plt.savefig(modelPath + "rocauc.png")
 
 
 # Function to use in order to test the model with any dataloader
@@ -694,7 +696,7 @@ def main(save_model, train_whole):
     set_seed(42)  # Set seed for reproducibility
 
     configuration = {
-        "epochs": tune.choice([2, 3,4,5]),
+        "epochs": tune.choice([2, 3, 4, 5]),
         "epsilon": tune.choice([1e-8, 1e-6]),
         "learning_rate": tune.choice([1e-5, 2e-5, 3e-5, 4e-5, 5e-5]),
         "batch_size": tune.choice([16, 32, 64]),
@@ -711,7 +713,7 @@ def main(save_model, train_whole):
                       num_samples=10,
                       progress_reporter=reporter)
 
-    result.results_df.to_csv(absolutePath+"models/binEngBert/results_df.csv")
+    result.results_df.to_csv(modelPath + "results_df.csv")
 
     best_trial = result.get_best_trial(metric="accuracy", mode="max")
 
@@ -732,9 +734,6 @@ def main(save_model, train_whole):
 
     # Evaluate the ROC of the classifier
     evaluate_roc(probs, y_true)
-
-    best_trained_model = BertClassifier(freeze_bert=False)
-
 
     # TRAIN THE MODEL WITH THE WHOLE DATASET
     # if train_whole:
