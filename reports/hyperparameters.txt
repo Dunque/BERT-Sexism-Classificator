@@ -25,3 +25,5 @@ ray tune schedulers
 https://docs.ray.io/en/latest/tune/api_docs/schedulers.html
 massively parallel hyperparameter tuning paper
 https://openreview.net/pdf?id=S1Y7OOlRZ
+
+finally, i got all binary berts done, incluing one that uses both english and spanish

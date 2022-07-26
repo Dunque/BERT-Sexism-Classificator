@@ -245,3 +245,21 @@ OVer sampling and under sampling
 https://www.jmlr.org/papers/volume18/16-365/16-365.pdf
 
 
+bert oversampling using SMOTE (very important)
+https://fatemerhmi.github.io/files/Classification_of_imbalanced_dataset_using_BERT_embedding.pdf
+
+seems like smote can lose part of the contextual meanings of the phrases, which is really important for bert.
+Nevertheless, there are other techniques that can be applied:
+
+RANDOM WORD DROPOUT
+SYNONYM REPLACEMENT
+
+nlpaug, textaugment python
+
+EDA, text augment
+https://aclanthology.org/D19-1670.pdf
+
+I tried synonym augmentation and the results improved quite a lot using nlpaug
+i must add that it doesn't support spanish.
+
+

@@ -13,7 +13,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 # Evaluation on validation set
 import seaborn as sns
-from sklearn.metrics import accuracy_score, roc_curve, auc
 from sklearn.metrics import classification_report, confusion_matrix
 # Spitting the date into train and validation
 from sklearn.model_selection import train_test_split
