@@ -34,6 +34,9 @@ modelPath = absolutePath + "models/multiEspBertSynonyms/"
 translated_data_path = absolutePath + "data/EXIST2021_translatedTrainingAugmented.csv"
 translated_test_data_path = absolutePath + "data/EXIST2021_translatedTest.csv"
 
+plt.rcParams.update({'font.family': 'serif'})
+plt.style.use("seaborn-whitegrid")
+
 
 # Function that returns two dataframes, for training and test
 # Paths must be absolute in order for the threads to work
@@ -46,14 +49,19 @@ def load_data(translated_data=translated_data_path,
     plot = plt.subplot()
     data.groupby('task2').size().plot.bar()
     plot.set_xlabel('labels', fontsize=10)
+    plot.set_xticklabels(["II", "MNSV", "NS", "O", "SV", "SD"])
+    plt.xticks(rotation=0)
     plot.xaxis.set_label_position('bottom')
-    plt.xticks(rotation=30)
     plot.xaxis.tick_bottom()
 
-    plot.set_ylabel('amount of tweets', fontsize=10)
-    plt.yticks(rotation=0)
+    values = data.groupby('task2').size()
 
-    plt.title('Label distribution', fontsize=15)
+    for i in range(6):
+        plt.text(i, values[i]//2, values[i], ha='center')
+
+    plot.set_ylabel('amount of tweets', fontsize=10)
+    plt.yticks(rotation=90)
+
     plt.tight_layout()
     plt.savefig(modelPath+"labelDistribution.png")
 
@@ -554,7 +562,7 @@ def train_model(config, train_dataloader, val_dataloader, category_sexism):
         print("\n")
 
     bl = plt.subplot()
-    bl.set_title('Batch loss')
+
     bl.set_xlabel('batch')
     bl.set_ylabel('loss')
     bl.plot(range(1, config["epochs"]+1), loss_list)

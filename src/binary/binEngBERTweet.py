@@ -38,6 +38,10 @@ translated_data_path = absolutePath + 'data/EXIST2021_translatedTraining.csv'
 translated_test_data_path = absolutePath + 'data/EXIST2021_translatedTest.csv'
 
 
+plt.rcParams.update({'font.family': 'serif'})
+plt.style.use("seaborn-whitegrid")
+
+
 # Function that returns two dataframes, for training and test
 # Paths must be absolute in order for the threads to work
 def load_data(translated_data=translated_data_path,
@@ -561,7 +565,7 @@ def train_model(config, train_dataloader, val_dataloader):
         print("\n")
 
     bl = plt.subplot()
-    bl.set_title('Batch loss')
+
     bl.set_xlabel('batch')
     bl.set_ylabel('loss')
     bl.plot(range(1, config["epochs"]+1), loss_list)
@@ -636,7 +640,7 @@ def evaluate(model, device, val_dataloader, avg_train_loss, time_elapsed, epoch_
     ax = plt.subplot()
     sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt="d")
 
-    ax.set_title('Confusion Matrix')
+
 
     ax.set_xlabel('Predicted Labels')
     ax.set_ylabel('True Labels')

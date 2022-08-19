@@ -256,7 +256,7 @@ def evaluate(model, test_loader):
     ax= plt.subplot()
     sns.heatmap(cm, annot=True, ax = ax, cmap='Blues', fmt="d")
 
-    ax.set_title('Confusion Matrix')
+
 
     ax.set_xlabel('Predicted Labels')
     ax.set_ylabel('True Labels')
