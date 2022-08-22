@@ -634,7 +634,7 @@ def evaluate(model, device, val_dataloader, avg_train_loss, time_elapsed, epoch_
 
     cm = confusion_matrix(y_true, y_pred)
     ax = plt.subplot()
-    sns.heatmap(cm, annot=True, ax=ax, cmap='Blues', fmt="d")
+    sns.heatmap(cm, annot=True, ax=ax, cmap='Spectral', fmt="d")
 
     # labels, title and ticks
     ax.set_xlabel('Predicted', fontsize=12)
