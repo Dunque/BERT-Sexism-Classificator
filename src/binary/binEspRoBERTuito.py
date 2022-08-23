@@ -78,11 +78,11 @@ def text_preprocessing(text):
     @param    text (str): a string to be processed.
     @return   text (Str): the processed string.
     """
-    # Remove '@name'
-    text = re.sub(r'(@.*?)[\s]', ' ', text)
+    # Replace '@name' with @usuario
+    text = text.replace(r'(@.*?)[\s]', "@usuario")
 
-    # Replace '&amp;' with '&'
-    text = re.sub(r'&amp;', '&', text)
+    # Replace '#text' with hashtag
+    text = text.replace(r'(#.*?)[\s]', "hashtag")
 
     # Remove trailing whitespace
     text = re.sub(r'\s+', ' ', text).strip()

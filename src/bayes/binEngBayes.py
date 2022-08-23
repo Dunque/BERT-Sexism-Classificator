@@ -167,8 +167,9 @@ def evaluate_roc(probs, y_true):
     plt.xlabel('False Positive Rate')
     plt.show()
 
+
 # Compute predicted probabilities
-nb_model = MultinomialNB(alpha=1.8)
+nb_model = MultinomialNB(alpha=best_alpha)
 nb_model.fit(X_train_tfidf, y_train)
 probs = nb_model.predict_proba(X_val_tfidf)
 
