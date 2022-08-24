@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 #DATA PREPROCESSING
 import nltk
 # Uncomment to download "stopwords"
-#nltk.download("stopwords")
+nltk.download("stopwords")
 from nltk.corpus import stopwords
 
 #tf-idf
@@ -20,11 +20,15 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 
 #Evaluation on validation set
-from sklearn.metrics import accuracy_score, roc_curve, auc
+from sklearn.metrics import accuracy_score, roc_curve, auc, classification_report
+
+plt.rcParams.update({'font.family': 'serif'})
+plt.style.use("seaborn-whitegrid")
 
 #Data paths
-translated_data = 'data/EXIST2021_translatedTraining.csv'
-translated_test_data = 'data/EXIST2021_translatedTest.csv'
+translated_data = '../../data/EXIST2021_translatedTraining.csv'
+translated_test_data = '../../data/EXIST2021_translatedTest.csv'
+modelPath = "../../models/bayes/eng/"
 
 # Load data and set labels
 data = pd.read_csv(translated_data)
@@ -125,18 +129,18 @@ def get_auc_CV(model):
 
 
 res = pd.Series([get_auc_CV(MultinomialNB(alpha=i))
-                 for i in np.arange(1, 10, 0.1)],
-                index=np.arange(1, 10, 0.1))
+                 for i in np.arange(1, 15, 0.1)],
+                index=np.arange(1, 15, 0.1))
 
 best_alpha = np.round(res.idxmax(), 2)
 print('Best alpha: ', best_alpha)
 
 plt.plot(res)
-plt.title('AUC vs. Alpha')
 plt.xlabel('Alpha')
 plt.ylabel('AUC')
-plt.show()
 
+plt.tight_layout()
+plt.savefig(modelPath + "alphaAUC.png")
 
 #Evaluation on validation set
 def evaluate_roc(probs, y_true):
@@ -150,22 +154,29 @@ def evaluate_roc(probs, y_true):
     fpr, tpr, threshold = roc_curve(y_true, preds)
     roc_auc = auc(fpr, tpr)
     print(f'AUC: {roc_auc:.4f}')
+
+    fpres = np.fromfile("../../models/bayes/esp/rocfpr.txt")
+    tpres = np.fromfile("../../models/bayes/esp/roctpr.txt")
        
     # Get accuracy over the test set
     y_pred = np.where(preds >= 0.5, 1, 0)
+    clas_rep_file = open((modelPath + "classReport.txt"), "w")
+    clas_rep_file.write(classification_report(y_true, y_pred, target_names=["non-sexist", "sexist"], digits=4))
     accuracy = accuracy_score(y_true, y_pred)
     print(f'Accuracy: {accuracy*100:.2f}%')
     
     # Plot ROC AUC
-    plt.title('Receiver Operating Characteristic')
     plt.plot(fpr, tpr, 'b', label = 'AUC = %0.2f' % roc_auc)
+    plt.plot(fpres, tpres, 'r', label='AUC = %0.2f' % 0.7797)
     plt.legend(loc = 'lower right')
-    plt.plot([0, 1], [0, 1],'r--')
+    plt.plot([0, 1], [0, 1],'g--')
     plt.xlim([0, 1])
     plt.ylim([0, 1])
     plt.ylabel('True Positive Rate')
     plt.xlabel('False Positive Rate')
-    plt.show()
+
+    plt.tight_layout()
+    plt.savefig(modelPath + "ROC.png")
 
 
 # Compute predicted probabilities

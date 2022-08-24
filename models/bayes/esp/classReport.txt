@@ -1,0 +1,8 @@
+              precision    recall  f1-score   support
+
+  non-sexist     0.6443    0.8584    0.7361       346
+      sexist     0.7932    0.5341    0.6384       352
+
+    accuracy                         0.6948       698
+   macro avg     0.7188    0.6962    0.6872       698
+weighted avg     0.7194    0.6948    0.6868       698
