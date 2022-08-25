@@ -155,8 +155,8 @@ def evaluate_roc(probs, y_true):
     roc_auc = auc(fpr, tpr)
     print(f'AUC: {roc_auc:.4f}')
 
-    fpres = np.fromfile("../../models/bayes/esp/rocfpr.txt")
-    tpres = np.fromfile("../../models/bayes/esp/roctpr.txt")
+    fpres = np.loadtxt("../../models/bayes/esp/rocfpr.txt")
+    tpres = np.loadtxt("../../models/bayes/esp/roctpr.txt")
        
     # Get accuracy over the test set
     y_pred = np.where(preds >= 0.5, 1, 0)
