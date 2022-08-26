@@ -7,7 +7,7 @@ from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 
 #Data paths
-translated_data = '../../data/EXIST2021_translatedTraining.csv'
+translated_data = '../../data/EXIST2021_translatedTrainingAugmented.csv'
 translated_test_data = '../../data/EXIST2021_translatedTest.csv'
 modelPath = "../../models/fastText/"
 trainingPath = "../../data/fasttext/"
@@ -74,7 +74,7 @@ predictions = []
 for sentence in X_val:
     predictions.append(model.predict(sentence)[0][0].replace('__label__',''))
 
-clas_rep_file = open((modelPath + "fastENGbin_report.txt"), "w")
+clas_rep_file = open((modelPath + "fastENGmulti_report.txt"), "w")
 clas_rep_file.write(classification_report(Y_val, predictions, digits=4))
 
 

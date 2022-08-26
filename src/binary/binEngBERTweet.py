@@ -631,7 +631,7 @@ def evaluate(model, device, val_dataloader, avg_train_loss, time_elapsed, epoch_
 
     print('Classification Report:')
     print(classification_report(y_true, y_pred, labels=[1, 0], target_names=["sexist","non-sexist"], digits=4))
-    clas_rep_file = open((modelPath + "classReport.txt"), "w")
+    clas_rep_file = open((modelPath + "classReportAugNoAlpha.txt"), "w")
     clas_rep_file.write(classification_report(y_true, y_pred, labels=[1, 0],  target_names=["sexist","non-sexist"], digits=4))
 
     print("\n")

@@ -20,29 +20,28 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 
 #Evaluation on validation set
-from sklearn.metrics import accuracy_score, roc_curve, auc, classification_report
+from sklearn.metrics import classification_report
 
 plt.rcParams.update({'font.family': 'serif'})
 plt.style.use("seaborn-whitegrid")
 
 #Data paths
-translated_data = '../../data/EXIST2021_translatedTraining.csv'
+translated_data = '../../data/EXIST2021_translatedTrainingAugmented.csv'
 translated_test_data = '../../data/EXIST2021_translatedTest.csv'
-modelPath = "../../models/bayes/esp/"
+modelPath = "../../models/bayes/multiEsp/"
 
 # Load data and set labels
 data = pd.read_csv(translated_data)
 
-#convert labels to integers
-data['LabelTask1'] = data['task1'].apply(lambda x : 1 if x == 'sexist' else 0)
+category_list = list(data.task2.unique())
+category_list.remove('non-sexist')
+category_list.insert(0, 'non-sexist')
+category_sexism = {category_list[index]: index for index in range(len(list(data.task2.unique())))}
+data['LabelTask2'] = data['task2'].apply(lambda x: category_sexism[x])
 
-#English version
-#data = data[['id', 'English', 'LabelTask1']]
-#data = data.rename(columns= {'id':'id', 'English':'tweet', 'LabelTask1':'label'})
-
-#Spanish version
-data = data.reindex(columns=['id', 'Spanish', 'LabelTask1'])
-data = data.rename(columns= {'id':'id', 'Spanish':'tweet', 'LabelTask1':'label'})
+# English version
+data = data[['id', 'Spanish', 'LabelTask2']]
+data = data.rename(columns={'id': 'id', 'Spanish': 'tweet', 'LabelTask2': 'label'})
 
 # Display 5 random samples
 data.sample(5)
@@ -115,65 +114,29 @@ def get_auc_CV(model):
     Return the average AUC score from cross-validation.
     """
     # Set KFold to shuffle data before the split
-    kf = StratifiedKFold(5, shuffle=True, random_state=1)
+    kf = StratifiedKFold(5, shuffle=True, random_state=2020)
 
-    # Get AUC scores
-    auc = cross_val_score(
-        model, X_train_tfidf, y_train, scoring="roc_auc", cv=kf)
+    # Get f1_weighted scores
+    f1 = cross_val_score(
+        model, X_train_tfidf, y_train, scoring="f1_weighted", cv=kf)
 
-    return auc.mean()
+    return f1.mean()
 
 
 res = pd.Series([get_auc_CV(MultinomialNB(alpha=i))
-                 for i in np.arange(1, 15, 0.1)],
-                index=np.arange(1, 15, 0.1))
+                 for i in np.arange(0, 1, 0.001)],
+                index=np.arange(0, 1, 0.001))
 
 best_alpha = np.round(res.idxmax(), 2)
 print('Best alpha: ', best_alpha)
 
-plt.plot(res)
+plt.plot(res, 'b')
 plt.xlabel('Alpha')
-plt.ylabel('AUC')
+plt.ylabel('F1-score')
 
 plt.tight_layout()
 plt.savefig(modelPath + "alphaAUC.png")
 
-
-# Evaluation on validation set
-def evaluate_roc(probs, y_true):
-    """
-    - Print AUC and accuracy on the test set
-    - Plot ROC
-    @params    probs (np.array): an array of predicted probabilities with shape (len(y_true), 2)
-    @params    y_true (np.array): an array of the true values with shape (len(y_true),)
-    """
-    preds = probs[:, 1]
-    fpr, tpr, threshold = roc_curve(y_true, preds)
-    roc_auc = auc(fpr, tpr)
-    print(f'AUC: {roc_auc:.4f}')
-
-    roc = open((modelPath + "rocdata.txt"), "w")
-    np.savetxt("rocfpr.txt", fpr, delimiter=",")
-    np.savetxt("roctpr.txt", tpr, delimiter=",")
-
-    # Get accuracy over the test set
-    y_pred = np.where(preds >= 0.5, 1, 0)
-    clas_rep_file = open((modelPath + "classReportAugNoAlpha.txt"), "w")
-    clas_rep_file.write(classification_report(y_true, y_pred, target_names=["non-sexist", "sexist"], digits=4))
-    accuracy = accuracy_score(y_true, y_pred)
-    print(f'Accuracy: {accuracy * 100:.2f}%')
-
-    # Plot ROC AUC
-    plt.plot(fpr, tpr, 'b', label='AUC = %0.2f' % roc_auc)
-    plt.legend(loc='lower right')
-    plt.plot([0, 1], [0, 1], 'r--')
-    plt.xlim([0, 1])
-    plt.ylim([0, 1])
-    plt.ylabel('True Positive Rate')
-    plt.xlabel('False Positive Rate')
-
-    plt.tight_layout()
-    plt.savefig(modelPath + "ROC.png")
 
 # Compute predicted probabilities
 nb_model = MultinomialNB(alpha=best_alpha)
@@ -181,4 +144,5 @@ nb_model.fit(X_train_tfidf, y_train)
 probs = nb_model.predict_proba(X_val_tfidf)
 
 # Evaluate the classifier
-evaluate_roc(probs, y_val)
+clas_rep_file = open((modelPath + "classReportAug.txt"), "w")
+clas_rep_file.write(classification_report(y_val, np.argmax(probs, axis=1), target_names=["NS","II", "O", "SV", "SD", "MNSV"], digits=4))

@@ -71,5 +71,5 @@ predictions = []
 for sentence in X_val:
     predictions.append(model.predict(sentence)[0][0].replace('__label__',''))
 
-clas_rep_file = open((modelPath + "fastENGbin_report.txt"), "w")
+clas_rep_file = open((modelPath + "fastESPbin_report.txt"), "w")
 clas_rep_file.write(classification_report(Y_val, predictions, digits=4))

@@ -160,7 +160,7 @@ def evaluate_roc(probs, y_true):
        
     # Get accuracy over the test set
     y_pred = np.where(preds >= 0.5, 1, 0)
-    clas_rep_file = open((modelPath + "classReport.txt"), "w")
+    clas_rep_file = open((modelPath + "classReportAugNoAlpha.txt"), "w")
     clas_rep_file.write(classification_report(y_true, y_pred, target_names=["non-sexist", "sexist"], digits=4))
     accuracy = accuracy_score(y_true, y_pred)
     print(f'Accuracy: {accuracy*100:.2f}%')
