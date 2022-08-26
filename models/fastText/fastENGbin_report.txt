@@ -1,12 +1,8 @@
-                              precision    recall  f1-score   support
+              precision    recall  f1-score   support
 
-      ideological-inequality     0.7011    0.6162    0.6559        99
-misogyny-non-sexual-violence     0.4815    0.4333    0.4561        60
-                  non-sexist     0.6667    0.8439    0.7449       346
-             objectification     0.4615    0.1091    0.1765        55
-             sexual-violence     0.4194    0.2708    0.3291        48
-      stereotyping-dominance     0.5067    0.4222    0.4606        90
+  non-sexist     0.7147    0.7601    0.7367       346
+      sexist     0.7485    0.7017    0.7243       352
 
-                    accuracy                         0.6246       698
-                   macro avg     0.5395    0.4493    0.4705       698
-                weighted avg     0.6018    0.6246    0.5974       698
+    accuracy                         0.7307       698
+   macro avg     0.7316    0.7309    0.7305       698
+weighted avg     0.7317    0.7307    0.7305       698
