@@ -33,7 +33,7 @@ from nltk.tokenize import TweetTokenizer
 
 absolutePath = "/home/roi_santos_rios/Desktop/BERT-Sexism-Classificator/"
 modelPath = absolutePath + "models/multiEngBertweet/"
-translated_data_path = absolutePath + 'data/EXIST2021_translatedTraining.csv'
+translated_data_path = absolutePath + 'data/EXIST2021_translatedTrainingAugmented.csv'
 translated_test_data_path = absolutePath + 'data/EXIST2021_translatedTest.csv'
 
 plt.rcParams.update({'font.family': 'serif'})
@@ -735,7 +735,7 @@ def main(save_model, train_whole):
     result = tune.run(train_model_hyperparams,
                       resources_per_trial={"gpu": 1},
                       config=configuration,
-                      num_samples=1,
+                      num_samples=10,
                       progress_reporter=reporter)
 
     result.results_df.to_csv(modelPath + "results_df.csv")
